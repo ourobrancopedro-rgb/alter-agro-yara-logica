@@ -133,6 +133,3 @@ Missing evidence → CI failure. Conflicts → mark **FACT(CONTESTED)**.
 
 
 ⸻
-
-✅ Paste this as README.md in your repo root before first push.
-Would you like me to generate matching CONTRIBUTING.md, SECURITY.md, and a minimal Python integrity-checker (verify_hashes.py + kpi_score.py) next?
