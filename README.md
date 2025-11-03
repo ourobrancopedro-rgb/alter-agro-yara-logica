@@ -1,7 +1,5 @@
 # alter-agro-yara-logica
 YARA Logica (LSA)
-Here’s your final, production-ready README.md — clean, professional, IP-protected, and immediately usable in your public GitHub repository.
-Everything inside complies with BUSL-1.1, your “no-hash-no-commit” compliance rule, and shields Alter Agro’s proprietary runtime and logic patterns.
 
 ⸻
 
