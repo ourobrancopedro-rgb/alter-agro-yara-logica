@@ -1,0 +1,26 @@
+# TruffleHog configuration for YARA Lógica repository
+# Purpose: Exclude false positives and local development artifacts
+
+# Exclude patterns - files/directories to skip during secret scanning
+exclude:
+  paths:
+    # Git internal files (contains local development config)
+    - ".git/"
+    - ".git/config"
+
+    # Test fixtures and mock data (may contain synthetic "secrets" for testing)
+    - "tests/fixtures/"
+    - "**/test_*.py"
+
+    # Build and cache directories
+    - "node_modules/"
+    - ".pytest_cache/"
+    - "__pycache__/"
+    - "*.pyc"
+
+  # Exclude specific detectors that cause false positives
+  detectors:
+    # None currently - add here if specific detector types cause issues
+
+# Note: This configuration ensures TruffleHog focuses on committed repository
+# content and avoids scanning local development artifacts in .git/

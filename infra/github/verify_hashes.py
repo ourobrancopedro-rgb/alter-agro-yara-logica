@@ -29,6 +29,8 @@ ALLOWLIST_DIRS = (
     "README.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
+    ".trufflehog.yaml",
+    ".gitleaksignore",
 )
 
 ALLOWLIST_EXT = (

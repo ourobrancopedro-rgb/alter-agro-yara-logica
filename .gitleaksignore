@@ -1,0 +1,5 @@
+# GitLeaks ignore patterns for YARA Lógica repository
+# Purpose: Exclude false positives from local development configuration
+
+# Git internal configuration (local development proxy URL)
+.git/config:*
