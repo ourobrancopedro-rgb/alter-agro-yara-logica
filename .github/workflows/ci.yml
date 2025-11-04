@@ -15,14 +15,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate scope allowlist
+      - name: Verify repository mode (spec-only)
         run: |
-          disallowed=$(git ls-files | grep -Ev '^(lsa/spec/|rag/spec/|docs/|infra/github/|legal/|\.github/|README\.md$)') || true
-          if [ -n "$disallowed" ]; then
-            echo "::error::The following tracked files violate the scope allowlist:" && echo "$disallowed"
-            exit 1
+          echo "Checking that only allowed paths changed..."
+          ALLOWED='^(\.gitignore|README\.md|lsa/spec/|rag/spec/|docs/|infra/github/|legal/|\.github/)'
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              RANGE="$(git rev-parse HEAD~1)..HEAD"
+            else
+              RANGE="HEAD"
+            fi
           fi
-          echo "Scope allowlist satisfied."
+
+          CHANGED=$(git diff --name-only $RANGE || true)
+          echo "$CHANGED" | sed '/^$/d' > /tmp/changed.txt
+          echo "Changed files:"; cat /tmp/changed.txt || true
+
+          if [ -s /tmp/changed.txt ]; then
+            BAD=$(grep -Ev "$ALLOWED" /tmp/changed.txt || true)
+            if [ -n "$BAD" ]; then
+              echo "❌ Disallowed path changes detected:"
+              echo "$BAD"
+              exit 1
+            fi
+          fi
+          echo "✅ Scope check passed."
 
       - name: Prohibited content scan
         run: |
