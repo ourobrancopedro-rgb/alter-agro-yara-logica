@@ -1,3 +1,39 @@
+# 🧠 YARA Lógica — LSA / PICC + RAG Hybrid
+
+> **An auditable AI reasoning framework** combining logic traceability (LSA/PICC) and verifiable evidence retrieval (RAG Hybrid).  
+> Developed and maintained by **Alter Agro Ltda.**
+
+[![View Repository](https://img.shields.io/badge/View_on_GitHub-Open-blue?logo=github)](https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-green.svg)](legal/LICENSE)
+[![Integrity Seal](https://img.shields.io/badge/No_Hash-No_Commit-orange.svg)](infra/github/hash_ledger.json)
+[![Audit Verified](https://img.shields.io/badge/Audit-Validated-blueviolet.svg)](docs/LSA_Auditor_Validation_Kit.pdf)
+
+---
+
+### 🔗 Official Repository
+**URL:** [github.com/ourobrancopedro-rgb/alter-agro-yara-logica](https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica)  
+**Visibility:** Public (specification-only)  
+**License:** [BUSL-1.1 — source-available, non-commercial until 2029](legal/LICENSE)  
+**Trademark:** “YARA Lógica” and “Alter Agro” — © Alter Agro Ltda. (see [TRADEMARKS.md](legal/TRADEMARKS.md))
+
+---
+
+### 🧮 Integrity & Verification
+- Every specification file is hash-sealed in [`infra/github/hash_ledger.json`](infra/github/hash_ledger.json)  
+- Commits must be **GPG-signed** and verified by CI  
+- CI Workflow: “No Hash, No Commit” compliance suite  
+- Auditor validation via [`docs/LSA_Auditor_Validation_Kit.pdf`](docs/LSA_Auditor_Validation_Kit.pdf)
+
+---
+
+### 🛡️ Contact
+**General inquiries:** [hello@alteragro.com.br](mailto:hello@alteragro.com.br)  
+**Security:** [security@alteragro.com.br](mailto:security@alteragro.com.br)
+
+---
+
+**© 2025 Alter Agro Ltda. All rights reserved.**  
+_Trademark, license, and integrity protections enforced under YARA Lógica Compliance Suite._
 # 🧠 YARA Lógica — LSA / PICC + RAG Hybrid (Open Specifications)
 
 [![View on GitHub](https://img.shields.io/badge/View%20Repository-Open-blue?logo=github)](https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica)
