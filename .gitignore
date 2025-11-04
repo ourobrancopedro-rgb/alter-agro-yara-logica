@@ -205,3 +205,26 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Block artifacts and secrets
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.bin
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.csv
+*.parquet
+*.env
+*.pem
+id_rsa
+id_ed25519
+
+# macOS/Linux noise
+.DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+name: Spec-only Gate
+on: [pull_request]
+
+jobs:
+  enforce-spec-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Block disallowed file types
+        run: |
+          disallowed='(\.py$|\.ipynb$|\.so$|\.dll$|\.bin$|\.onnx$|\.pt$|\.pth$|\.ckpt$|\.pkl$|\.tar\.gz$|\.zip$|\.env$|id_rsa|id_ed25519)'
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | egrep -i "${disallowed}"; then
+            echo "❌ Disallowed file found. This repo is spec-only."
+            exit 1
+          fi
+
+      - name: Require license/notice mentions in text files
+        run: |
+          missing=$(git ls-files | egrep -i '\.(md|txt|yml|yaml)$' | xargs -I{} bash -c 'grep -qi "BUSL-1.1" "{}" || echo {}')
+          if [ -n "$missing" ]; then
+            echo "❌ Missing BUSL-1.1 mention in:"
+            echo "$missing"
+            exit 1
+          fi
