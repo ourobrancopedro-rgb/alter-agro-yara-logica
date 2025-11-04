@@ -102,3 +102,4 @@ jobs:
             echo "::warning::Latest commit on main is not GPG-signed. Enforce via branch protection."
           else
             echo "Latest commit on main is GPG-signed."
+          fi
