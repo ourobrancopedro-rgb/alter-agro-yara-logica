@@ -1,0 +1,94 @@
+name: Spec Integrity CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify repository mode (spec-only)
+        run: |
+          echo "Checking that only allowed paths changed..."
+          ALLOWED='^(\.gitignore|README\.md|lsa/spec/|rag/spec/|docs/|infra/github/|legal/|\.github/)'
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              RANGE="$(git rev-parse HEAD~1)..HEAD"
+            else
+              RANGE="HEAD"
+            fi
+          fi
+
+          CHANGED=$(git diff --name-only $RANGE || true)
+          echo "$CHANGED" | sed '/^$/d' > /tmp/changed.txt
+          echo "Changed files:"; cat /tmp/changed.txt || true
+
+          if [ -s /tmp/changed.txt ]; then
+            BAD=$(grep -Ev "$ALLOWED" /tmp/changed.txt || true)
+            if [ -n "$BAD" ]; then
+              echo "❌ Disallowed path changes detected:"
+              echo "$BAD"
+              exit 1
+            fi
+          fi
+          echo "✅ Scope check passed."
+
+      - name: Prohibited content scan
+        run: |
+          pattern='(FastAPI|Flask|LangChain|Ollama|transformers|model\.bin|\.safetensors|-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|aws_secret_access_key|http[s]?://[^ ]+/api/)'
+          failed=0
+          while IFS= read -r file; do
+            if file "$file" | grep -qi 'text'; then
+              if grep -P -n "$pattern" "$file" > matches.txt; then
+                echo "::error file=$file::Prohibited content detected" && cat matches.txt
+                failed=1
+              fi
+            fi
+          done < <(git ls-files)
+          rm -f matches.txt
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+          echo "No prohibited content found."
+
+      - name: Check legal artifacts
+        run: |
+          [ -f legal/LICENSE ] && [ -f legal/TRADEMARKS.md ] || { echo "::error::Missing legal/LICENSE or legal/TRADEMARKS.md"; exit 1; }
+          echo "Legal artifacts present."
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python requirements
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Verify hash ledger
+        run: |
+          python infra/github/verify_hashes.py
+
+      - name: Run KPI gates
+        run: |
+          python infra/github/kpi_score.py --min-faith-premise 0.80 --min-contradiction-coverage 0.90
+
+      - name: Check last commit signature (advisory)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          status=$(git log -1 --pretty='%G?')
+          if [ "$status" != "G" ]; then
+            echo "::warning::Latest commit on main is not GPG-signed. Enforce via branch protection."
+          else
+            echo "Latest commit on main is GPG-signed."
