@@ -1,0 +1,354 @@
+name: Information Barrier & Secret Detection
+
+# Purpose: Comprehensive security scanning to prevent accidental leaks of trade secrets
+# Runs on every push and pull request to detect:
+# - API keys, tokens, credentials
+# - Code files in spec-only repository
+# - Prompt engineering patterns
+# - Customer data patterns
+# - Model weights and binaries
+# - Private infrastructure references
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  secret-scanning:
+    name: Secret & Sensitive Data Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comprehensive scanning
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ============================================================================
+      # TRUFFELHOG - Industry-standard secret detection
+      # ============================================================================
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run TruffleHog secret scan
+        run: |
+          echo "🔍 Running TruffleHog secret detection..."
+          trufflehog filesystem . \
+            --json \
+            --no-update \
+            --fail \
+            > trufflehog-report.json || {
+              echo "::error::TruffleHog detected secrets!"
+              cat trufflehog-report.json
+              exit 1
+            }
+          echo "✅ TruffleHog: No secrets detected"
+
+      # ============================================================================
+      # GITLEAKS - Comprehensive secret scanning
+      # ============================================================================
+      - name: Install GitLeaks
+        run: |
+          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.1_linux_x64.tar.gz
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Run GitLeaks scan
+        run: |
+          echo "🔍 Running GitLeaks secret detection..."
+          gitleaks detect \
+            --source . \
+            --verbose \
+            --report-path gitleaks-report.json \
+            --exit-code 1 || {
+              echo "::error::GitLeaks detected secrets!"
+              cat gitleaks-report.json
+              exit 1
+            }
+          echo "✅ GitLeaks: No secrets detected"
+
+      # ============================================================================
+      # CUSTOM DLP SCANNER - Alter Agro specific patterns
+      # ============================================================================
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          # No external dependencies needed for basic scanner
+
+      - name: Run custom DLP scanner
+        run: |
+          echo "🔍 Running custom DLP scanner for Alter Agro patterns..."
+          python infra/github/scan_secrets.py --strict --output dlp-report.json || {
+            echo "::error::Custom DLP scanner detected violations!"
+            cat dlp-report.json
+            exit 1
+          }
+          echo "✅ Custom DLP: No violations detected"
+
+      # ============================================================================
+      # FORBIDDEN TERMS DETECTION
+      # ============================================================================
+      - name: Scan for forbidden terms
+        run: |
+          echo "🔍 Scanning for forbidden terms..."
+
+          # Forbidden patterns (case-insensitive)
+          PATTERNS=(
+            'api_key'
+            'api-key'
+            'apikey'
+            'secret'
+            'password'
+            'passwd'
+            'token'
+            'bearer'
+            'credentials'
+            'aws_access_key'
+            'aws_secret'
+            'private_key'
+            'ssh-rsa AAAA'
+            '-----BEGIN.*PRIVATE KEY-----'
+            'AKIA[0-9A-Z]{16}'
+          )
+
+          VIOLATIONS=0
+          for pattern in "${PATTERNS[@]}"; do
+            if git grep -i -n "$pattern" -- . ':!.github/workflows/information-barrier.yml' ':!legal/' ':!docs/'; then
+              echo "::error::Forbidden term detected: $pattern"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "::error::Found $VIOLATIONS forbidden term violations"
+            exit 1
+          fi
+
+          echo "✅ No forbidden terms detected"
+
+      # ============================================================================
+      # CODE FILE DETECTION (outside allowed directories)
+      # ============================================================================
+      - name: Block unauthorized code files
+        run: |
+          echo "🔍 Checking for code files outside infra/github/..."
+
+          # Code file extensions that should ONLY exist in infra/github/
+          CODE_EXTS=('\.py$' '\.js$' '\.ts$' '\.tsx$' '\.jsx$' '\.go$' '\.java$' '\.rb$' '\.php$' '\.rs$')
+
+          VIOLATIONS=0
+          for ext in "${CODE_EXTS[@]}"; do
+            # Find code files outside infra/github/ and .github/
+            if git ls-files | grep -E "$ext" | grep -v '^infra/github/' | grep -v '^\.github/' > /tmp/bad-code-files.txt; then
+              if [ -s /tmp/bad-code-files.txt ]; then
+                echo "::error::Code files ($ext) found outside infra/github/:"
+                cat /tmp/bad-code-files.txt
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "::error::Unauthorized code files detected. This is a spec-only repository!"
+            exit 1
+          fi
+
+          echo "✅ No unauthorized code files detected"
+
+      # ============================================================================
+      # PROMPT ENGINEERING PATTERN DETECTION
+      # ============================================================================
+      - name: Detect prompt engineering patterns
+        run: |
+          echo "🔍 Scanning for prompt engineering patterns..."
+
+          PROMPT_PATTERNS=(
+            'system:'
+            'user:'
+            'assistant:'
+            '<|im_start|>'
+            '<|im_end|>'
+            '<<SYS>>'
+            '<</SYS>>'
+            'You are a helpful assistant'
+            'Answer the following question'
+          )
+
+          VIOLATIONS=0
+          for pattern in "${PROMPT_PATTERNS[@]}"; do
+            # Exclude this workflow file and documentation
+            if git grep -i -n "$pattern" -- . ':!.github/workflows/' ':!docs/' ':!README.md'; then
+              echo "::warning::Potential prompt pattern detected: $pattern"
+              # Warning only, not blocking (prompts might be in specs)
+            fi
+          done
+
+          echo "✅ Prompt pattern scan complete"
+
+      # ============================================================================
+      # MODEL WEIGHTS AND BINARY DETECTION
+      # ============================================================================
+      - name: Block model weights and large binaries
+        run: |
+          echo "🔍 Checking for model weights and binaries..."
+
+          # Binary/model file extensions
+          BINARY_EXTS=('\.bin$' '\.safetensors$' '\.ckpt$' '\.pth$' '\.pkl$' '\.h5$' '\.pb$' '\.onnx$')
+
+          VIOLATIONS=0
+          for ext in "${BINARY_EXTS[@]}"; do
+            if git ls-files | grep -E "$ext" > /tmp/binary-files.txt; then
+              if [ -s /tmp/binary-files.txt ]; then
+                echo "::error::Model/binary files detected ($ext):"
+                cat /tmp/binary-files.txt
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "::error::Model weights or binaries detected. Not allowed in public repository!"
+            exit 1
+          fi
+
+          echo "✅ No model weights or binaries detected"
+
+      # ============================================================================
+      # FILE SIZE LIMITS
+      # ============================================================================
+      - name: Check file size limits
+        run: |
+          echo "🔍 Checking file size limits..."
+
+          # Find files larger than 10MB
+          LARGE_FILES=$(find . -type f -size +10M ! -path './.git/*')
+
+          if [ -n "$LARGE_FILES" ]; then
+            echo "::error::Files larger than 10MB detected:"
+            echo "$LARGE_FILES"
+            echo "Large files are not allowed in this repository!"
+            exit 1
+          fi
+
+          echo "✅ All files within size limits"
+
+      # ============================================================================
+      # CUSTOMER DATA PATTERN DETECTION
+      # ============================================================================
+      - name: Scan for customer data patterns
+        run: |
+          echo "🔍 Scanning for customer data patterns..."
+
+          # Email patterns (excluding generic @alteragro.com.br)
+          if git grep -E '[a-zA-Z0-9._%+-]+@(?!alteragro\.com\.br)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' -- . ':!.github/' ':!legal/'; then
+            echo "::warning::External email addresses detected. Verify no customer data leaked."
+          fi
+
+          # Phone number patterns (Brazilian format)
+          if git grep -E '\+55[0-9]{10,11}|\\([0-9]{2}\\) [0-9]{4,5}-[0-9]{4}' -- .; then
+            echo "::error::Phone numbers detected. Customer PII not allowed!"
+            exit 1
+          fi
+
+          # CPF/CNPJ patterns (Brazilian tax IDs)
+          if git grep -E '[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}|[0-9]{2}\.[0-9]{3}\.[0-9]{3}/[0-9]{4}-[0-9]{2}' -- .; then
+            echo "::error::CPF/CNPJ patterns detected. Customer PII not allowed!"
+            exit 1
+          fi
+
+          echo "✅ Customer data pattern scan complete"
+
+      # ============================================================================
+      # ALLOWLIST VERIFICATION (using existing scope guard)
+      # ============================================================================
+      - name: Verify allowlist compliance
+        run: |
+          echo "🔍 Verifying allowlist compliance..."
+
+          # Run the scope guard if it exists
+          if [ -f "infra/github/check_allowlist.py" ]; then
+            python infra/github/check_allowlist.py || {
+              echo "::error::Allowlist violations detected!"
+              exit 1
+            }
+          else
+            echo "::warning::check_allowlist.py not found, using basic check"
+
+            # Basic allowlist check
+            ALLOWED_PATHS='^(\.github/|lsa/spec/|rag/spec/|docs/|infra/github/|legal/|README\.md|\.gitignore)'
+
+            VIOLATIONS=$(git ls-files | grep -Ev "$ALLOWED_PATHS" || true)
+            if [ -n "$VIOLATIONS" ]; then
+              echo "::error::Files outside allowlist detected:"
+              echo "$VIOLATIONS"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Allowlist compliance verified"
+
+      # ============================================================================
+      # SLACK NOTIFICATION (optional - only if webhook configured)
+      # ============================================================================
+      - name: Send Slack alert on failure
+        if: failure() && vars.SECURITY_SLACK_WEBHOOK
+        run: |
+          curl -X POST ${{ vars.SECURITY_SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "🚨 SECURITY ALERT: Information barrier detected violations in repository alter-agro-yara-logica",
+              "attachments": [{
+                "color": "danger",
+                "fields": [
+                  {"title": "Repository", "value": "${{ github.repository }}", "short": true},
+                  {"title": "Branch", "value": "${{ github.ref }}", "short": true},
+                  {"title": "Commit", "value": "${{ github.sha }}", "short": true},
+                  {"title": "Actor", "value": "${{ github.actor }}", "short": true},
+                  {"title": "Action", "value": "Check GitHub Actions logs immediately", "short": false}
+                ]
+              }]
+            }'
+
+      # ============================================================================
+      # UPLOAD REPORTS AS ARTIFACTS
+      # ============================================================================
+      - name: Upload security scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-reports
+          path: |
+            trufflehog-report.json
+            gitleaks-report.json
+            dlp-report.json
+          retention-days: 90
+
+      # ============================================================================
+      # FINAL STATUS
+      # ============================================================================
+      - name: Security scan summary
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ INFORMATION BARRIER: ALL CHECKS PASSED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ TruffleHog: No secrets detected"
+          echo "✅ GitLeaks: No secrets detected"
+          echo "✅ Custom DLP: No violations"
+          echo "✅ Forbidden terms: Clean"
+          echo "✅ Code files: Compliant"
+          echo "✅ Model weights: None found"
+          echo "✅ File sizes: Within limits"
+          echo "✅ Customer data: Protected"
+          echo "✅ Allowlist: Verified"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Repository is clear for commit/merge."
