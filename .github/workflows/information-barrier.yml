@@ -45,6 +45,7 @@ jobs:
             --json \
             --no-update \
             --fail \
+            --config=.trufflehog.yaml \
             > trufflehog-report.json || {
               echo "::error::TruffleHog detected secrets!"
               cat trufflehog-report.json

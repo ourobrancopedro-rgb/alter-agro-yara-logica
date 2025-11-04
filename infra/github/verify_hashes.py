@@ -8,18 +8,49 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Set
 
 LEDGER_PATH = Path(__file__).resolve().parent / "hash_ledger.json"
-ALLOWED_PREFIXES = (
-    "README.md",
+
+EXCLUDED_FILES = {
+    ".gitignore",
+    ".gitattributes",
+}
+
+# Allowlist de publicação (spec-only). Ajuste conforme política do repo.
+ALLOWLIST_DIRS = (
     "lsa/spec/",
     "rag/spec/",
     "docs/",
-    "infra/github/",
     "legal/",
+    "infra/github/",
     ".github/",
+    "tests/",
+    "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    ".trufflehog.yaml",
+    ".gitleaksignore",
 )
+
+ALLOWLIST_EXT = (
+    ".md", ".json", ".yml", ".yaml", ".py", ".txt",
+    ".mermaid", ".svg",  # svg permitido para diagramas públicos
+)
+
+
+def is_allowed(path: Path) -> bool:
+    """Check if a file path is allowed to be published according to the allowlist."""
+    p = str(path).replace("\\", "/")
+    if p in EXCLUDED_FILES:
+        return False
+    # Check if it's an exact match or starts with an allowed directory
+    if any(p == d for d in ALLOWLIST_DIRS):
+        return True
+    if any(p.startswith(d) for d in ALLOWLIST_DIRS if d.endswith("/")):
+        # Extension check for files in allowed directories
+        return path.suffix in ALLOWLIST_EXT or path.is_dir()
+    return False
 
 
 def _strip_comments(text: str) -> str:
@@ -46,17 +77,20 @@ def load_ledger() -> Dict[str, str]:
     return {str(key): str(value) for key, value in data.items()}
 
 
-def discover_tracked_files() -> Dict[str, str]:
-    files: Dict[str, str] = {}
+def discover_tracked_files() -> Set[str]:
+    """Discover all files that should be tracked in the hash ledger."""
+    files: Set[str] = set()
     for path in Path(".").rglob("*"):
         if not path.is_file():
             continue
         rel = path.as_posix()
+        # Always include the ledger itself (with empty hash)
         if rel == "infra/github/hash_ledger.json":
-            files[rel] = ""
+            files.add(rel)
             continue
-        if any(rel == prefix or rel.startswith(prefix) for prefix in ALLOWED_PREFIXES):
-            files[rel] = ""
+        # Check if file is allowed
+        if is_allowed(path):
+            files.add(rel)
     return files
 
 
@@ -69,33 +103,60 @@ def compute_hash(path: Path) -> str:
 
 
 def verify(ledger: Dict[str, str]) -> None:
-    missing = []
+    """Verify that the ledger is complete and all hashes match."""
+    # 1) Discover files that should be tracked (source of truth)
+    expected = discover_tracked_files()
+    ledger_keys = set(ledger.keys())
+
+    missing_in_ledger = sorted(expected - ledger_keys)
+    extra_in_ledger = sorted(ledger_keys - expected)
+
     mismatched = []
-    for rel_path, expected_hash in ledger.items():
+    present_missing = []
+
+    # 2) Report if ledger doesn't cover expected files OR has stale entries
+    errors = False
+    if missing_in_ledger:
+        errors = True
+        print("Ledger is missing entries for allowed files:")
+        for rel in missing_in_ledger:
+            print(f"  - {rel}")
+    if extra_in_ledger:
+        errors = True
+        print("Ledger contains entries for files not allowed or not present:")
+        for rel in extra_in_ledger:
+            print(f"  - {rel}")
+
+    # 3) Verify hashes only for intersection (files in both sets)
+    for rel_path in sorted(expected & ledger_keys):
+        if rel_path in EXCLUDED_FILES:
+            continue
         file_path = Path(rel_path)
         if not file_path.is_file():
-            missing.append(rel_path)
+            present_missing.append(rel_path)
             continue
         actual = compute_hash(file_path)
+        expected_hash = ledger.get(rel_path, "")
         if expected_hash and actual != expected_hash:
             mismatched.append((rel_path, expected_hash, actual))
-    errors = False
-    if missing:
+
+    if present_missing:
         errors = True
-        print("Missing files:")
-        for rel in missing:
+        print("Files listed but not found on disk:")
+        for rel in present_missing:
             print(f"  - {rel}")
     if mismatched:
         errors = True
         print("Hash mismatches:")
-        for rel, expected, actual in mismatched:
-            print(f"  - {rel}\n      expected: {expected}\n      actual:   {actual}")
+        for rel, expected_h, actual_h in mismatched:
+            print(f"  - {rel}\n      expected: {expected_h}\n      actual:   {actual_h}")
     if errors:
         raise SystemExit(1)
-    print("All tracked hashes verified.")
+    print("All expected files covered by ledger and all hashes verified.")
 
 
 def update_ledger() -> None:
+    """Recompute hashes for all tracked files and update the ledger."""
     tracked = discover_tracked_files()
     updated: Dict[str, str] = {}
     for rel_path in sorted(tracked):
