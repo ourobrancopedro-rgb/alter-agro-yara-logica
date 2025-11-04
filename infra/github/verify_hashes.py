@@ -25,6 +25,7 @@ ALLOWLIST_DIRS = (
     "legal/",
     "infra/github/",
     ".github/",
+    "tests/",
     "README.md",
     "CONTRIBUTING.md",
     "SECURITY.md",

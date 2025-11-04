@@ -16,7 +16,7 @@
   "infra/github/kpi_score.py": "4c7e08c7f54cfc2b645860ae82858ab068d1176269c8dd11ae42475f5513325f",
   "infra/github/scan_secrets.py": "d29a523cc7e8f1aa2af87e80f9bfe690132fa17ff4cef5ac3b76d2f5f1af1030",
   "infra/github/security_dashboard.py": "e5829e0dee4f0921bc73c055a96a406ff82f91a318bfa83d72a7959433da27eb",
-  "infra/github/verify_hashes.py": "ff8b22c38514a97b4c99f1bacc32d91aa5ea1e6415b7286cbc51434ea65e1cde",
+  "infra/github/verify_hashes.py": "4318e2cef97b5c6b1183acfd524535923f679e950a8373a8f60e464ca04ec2f4",
   "legal/TRADEMARKS.md": "7269c06d00deda55b47b2c62170ada2e437e27dc135744e0ef0e19f8fd86ee02",
   "legal/TRADE_SECRET_POLICY.md": "827aec4991f3549cc6136ed3f5cc19b2a88e309c717eb0e6eee7a97376edcd92",
   "lsa/spec/AUDIT_TRAIL.md": "35c87189fde7fc6355fd02976083f5028018de7edfaa2359199c5cd94a820769",
@@ -26,5 +26,6 @@
   "lsa/spec/examples/validate_inference.py": "3587c7eb01f5bf74e115f9eb6181f61cad2a3fe14d5ce0855b273b7f8b748e96",
   "lsa/spec/examples/validate_premise.py": "c83a8f3d85434345112fe80ef27c1b45bc15da61e6b6d3101f8a43f7715733aa",
   "rag/spec/RAG_POLICY.md": "226e6c9e56b12748d3e8cdd66e7f17fde571a760bfe26f0f330dc1f4882d4b07",
-  "rag/spec/SOURCE_VERIFICATION.md": "e6e46a64d5ea226c9eb38a624385093cfba6144c5a2ebc27ad4d441684315393"
+  "rag/spec/SOURCE_VERIFICATION.md": "e6e46a64d5ea226c9eb38a624385093cfba6144c5a2ebc27ad4d441684315393",
+  "tests/test_verify_hashes_discovery.py": "d7b1b3668f23cd723d8c574a7a710757fdf756b0bf82c25c198d552f28410a07"
 }
