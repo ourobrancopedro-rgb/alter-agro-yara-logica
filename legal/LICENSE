@@ -1,0 +1,69 @@
+Business Source License 1.1
+
+License Date: 2025-01-11
+Change Date: 2029-01-01
+
+Licensor: Alter Agro Ltda.
+Licensed Work: YARA Lógica — Public Specifications Repository
+
+The Business Source License (this “License”) is not an Open Source license. However, the Licensed Work will eventually be made available under an Open Source License, as stated in this License.
+
+# 1. License Grant
+
+Subject to the terms of this License, Licensor hereby grants You a non-exclusive, worldwide, non-transferable, royalty-free and fully paid up license during the Change Date Period to use, copy, make available, and prepare derivative works of the Licensed Work, in each case solely for the Permitted Use. The “Change Date Period” means the period from the License Date until the earlier of (a) the Change Date or (b) the date the Change License is applied to the Licensed Work as provided in Section 3.
+
+# 2. Permitted Use
+
+The “Permitted Use” for this Licensed Work is non-production evaluation, testing, research, and documentation related to Alter Agro’s YARA Lógica specifications. Any other use, including but not limited to production deployment, commercial exploitation, or use of the Licensed Work in or to provide services to third parties for a fee, requires a separate, written commercial license from Licensor.
+
+# 3. Change License
+
+On the Change Date, Licensor will, if it has not already done so, make the Licensed Work available under the Apache License, Version 2.0 (the “Change License”). However, Licensor may release the Licensed Work under the Change License on an earlier date.
+
+# 4. Termination
+
+If You breach this License, Your rights under this License will terminate automatically. Upon termination, You must cease all use of the Licensed Work and destroy all copies in Your possession or control.
+
+# 5. No Trademark License
+
+This License does not grant You any right in the trademarks, service marks, brand names, or logos of Licensor. Use of Licensor’s marks requires separate written permission.
+
+# 6. Disclaimer of Warranty
+
+THE LICENSED WORK IS PROVIDED “AS IS” AND WITHOUT WARRANTY OF ANY KIND. LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. LICENSOR DOES NOT WARRANT THAT THE LICENSED WORK WILL BE ERROR FREE OR THAT USE WILL BE UNINTERRUPTED.
+
+# 7. Limitation of Liability
+
+IN NO EVENT WILL LICENSOR BE LIABLE TO YOU OR TO ANY THIRD PARTY FOR ANY DAMAGES, INCLUDING WITHOUT LIMITATION DIRECT, INDIRECT, INCIDENTAL, CONSEQUENTIAL, SPECIAL, OR EXEMPLARY DAMAGES, ARISING OUT OF OR RELATING TO THIS LICENSE OR THE USE OF THE LICENSED WORK, EVEN IF LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+# 8. Indemnification
+
+You will indemnify, defend, and hold harmless Licensor and its affiliates, officers, directors, employees, and agents from any claims, damages, liabilities, costs, and expenses (including reasonable attorneys’ fees) arising from Your use of the Licensed Work in violation of this License.
+
+# 9. Compliance
+
+You must comply with all applicable laws and regulations in connection with Your exercise of the rights granted under this License.
+
+# 10. Governing Law
+
+This License will be governed by and construed in accordance with the laws of Brazil, without regard to its conflict of law principles.
+
+# 11. Entire Agreement
+
+This License constitutes the entire agreement between You and Licensor concerning the Licensed Work and supersedes any prior or contemporaneous understandings regarding the Licensed Work.
+
+# 12. Severability
+
+If any provision of this License is held to be unenforceable, that provision will be interpreted to reflect the intent of the parties, and the remaining provisions will remain in full force and effect.
+
+# 13. Waiver
+
+No failure or delay by Licensor in exercising any right under this License will constitute a waiver of that right.
+
+# 14. Export Control
+
+You will comply with all applicable export control and economic sanctions laws and regulations in connection with the Licensed Work.
+
+---
+
+Copyright © 2025 Alter Agro Ltda. All rights reserved.
