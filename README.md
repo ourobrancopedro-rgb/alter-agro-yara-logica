@@ -169,3 +169,9 @@ Missing evidence → CI failure. Conflicts → mark **FACT(CONTESTED)**.
 **Integrity Seal:** Operated under the YARA Lógica Compliance Suite — all commits GPG-signed and hash-verified.
 **Contact:** [contatoalteragro@gmail.com](mailto:contatoalteragro@gmail.com)
 © 2025 Alter Agro Ltda. All rights reserved.
+---
+
+**Integrity Verification:**  
+✅ Repository verified under YARA Lógica Compliance Suite.  
+🔒 SHA-256 of current manifest:  
+sha256sum infra/github/hash_ledger.json
