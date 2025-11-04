@@ -12,6 +12,7 @@ from typing import Dict
 
 LEDGER_PATH = Path(__file__).resolve().parent / "hash_ledger.json"
 ALLOWED_PREFIXES = (
+    ".gitignore",
     "README.md",
     "lsa/spec/",
     "rag/spec/",

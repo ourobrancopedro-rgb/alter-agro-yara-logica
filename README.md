@@ -27,6 +27,7 @@ Only the **specifications and audit rules** are open-sourced here.
 
 Only the following paths are permitted in this public repository:
 
+- `.gitignore`
 - `lsa/spec/`
 - `rag/spec/`
 - `docs/`

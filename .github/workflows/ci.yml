@@ -23,6 +23,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             RANGE="origin/${{ github.base_ref }}...HEAD"
           else
+            # On push, compare last commit to its parent (first commit: tolerate empty)
             if git rev-parse HEAD~1 >/dev/null 2>&1; then
               RANGE="$(git rev-parse HEAD~1)..HEAD"
             else
@@ -46,31 +47,34 @@ jobs:
 
       - name: Prohibited content scan
         run: |
-          pattern='(FastAPI|Flask|LangChain|Ollama|transformers|model\.bin|\.safetensors|-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|aws_secret_access_key|http[s]?://[^ ]+/api/)'
+          echo "Scanning tracked text files for prohibited patterns..."
+          PATTERN='(FastAPI|Flask|LangChain|Ollama|transformers|model\.bin|\.safetensors|-----BEGIN (RSA|OPENSSH) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|aws_secret_access_key|http[s]?://[^ ]+/api/)'
           failed=0
-          while IFS= read -r file; do
-            if file "$file" | grep -qi 'text'; then
-              if grep -P -n "$pattern" "$file" > matches.txt; then
-                echo "::error file=$file::Prohibited content detected" && cat matches.txt
-                failed=1
-              fi
-            fi
-          done < <(git ls-files)
+          git ls-files -z \
+            | xargs -0 file --mime-type \
+            | awk -F: '$2 ~ /text\// {print $1}' \
+            | while read -r file; do
+                if grep -EIn "$PATTERN" "$file" > matches.txt 2>/dev/null; then
+                  echo "::error file=$file::Prohibited content detected"
+                  cat matches.txt
+                  failed=1
+                fi
+              done
           rm -f matches.txt
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          echo "No prohibited content found."
+          echo "✅ No prohibited content found."
 
       - name: Check legal artifacts
         run: |
           [ -f legal/LICENSE ] && [ -f legal/TRADEMARKS.md ] || { echo "::error::Missing legal/LICENSE or legal/TRADEMARKS.md"; exit 1; }
-          echo "Legal artifacts present."
+          echo "✅ Legal artifacts present."
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
       - name: Install Python requirements
         run: |
@@ -80,7 +84,9 @@ jobs:
         run: |
           python infra/github/verify_hashes.py
 
+      # Optional check — only runs if the script exists in the repo
       - name: Validate integrity seal freshness
+        if: ${{ hashFiles('infra/github/check_integrity_seal.py') != '' }}
         run: |
           python infra/github/check_integrity_seal.py
 
