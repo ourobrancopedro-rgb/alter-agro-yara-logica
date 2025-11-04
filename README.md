@@ -115,12 +115,97 @@ yara-logica/
 
 ---
 
+## 🛡️ Information Security & Trade Secret Protection
+
+### Dual-Repository Strategy
+
+Alter Agro maintains **two separate repositories** for YARA Lógica to protect intellectual property:
+
+| Repository | Visibility | Content | Classification |
+|:-----------|:-----------|:--------|:---------------|
+| **alter-agro-yara-logica** (this repo) | 🌍 Public | Specifications, audit artifacts, methodology | **P0 - Public** |
+| **Private Runtime Repositories** | 🔒 Private | Code, prompts, models, customer data | **P2/P3 - Confidential/Trade Secret** |
+
+### What's NOT in This Repository
+
+This public repository **intentionally excludes**:
+
+❌ **Runtime Code** — FastAPI, LangChain, backend services, APIs
+❌ **Prompt Engineering** — Instruction templates, system prompts, fine-tuned models
+❌ **Model Weights** — Binary files, training data, model configurations
+❌ **Customer Data** — Names, contacts, contracts, usage analytics, PII
+❌ **Secrets** — API keys, tokens, credentials, certificates
+❌ **Infrastructure** — Deployment configs, IP addresses, internal domains
+❌ **Business Logic** — Pricing algorithms, proprietary optimizations
+
+**Why?** These assets constitute **trade secrets** under Brazilian law (Lei 9.279/1996, Art. 195) and provide competitive advantage. See [Trade Secret Protection Policy](legal/TRADE_SECRET_POLICY.md).
+
+### Security Enforcement
+
+This repository implements **multi-layer security**:
+
+#### 🔍 Automated Secret Scanning
+- **TruffleHog** — Industry-standard secret detection
+- **GitLeaks** — Comprehensive pattern matching
+- **Custom DLP Scanner** — Alter Agro-specific patterns (customers, pricing, prompts)
+- **Pre-commit Hooks** — Client-side validation before push
+
+#### 🚧 Information Barrier
+- **Allowlist Enforcement** — Only approved paths accepted
+- **File Type Validation** — Code files blocked outside `infra/github/`
+- **Size Limits** — Prevents binary/model uploads (10MB max)
+- **Content Scanning** — Forbidden terms, customer data, pricing info
+
+#### 🔐 Integrity Verification
+- **GPG-Signed Commits** — All changes cryptographically signed
+- **Hash Ledger** — SHA-256 tracking in `infra/github/hash_ledger.json`
+- **Branch Protection** — Required reviews + status checks
+- **CI/CD Gates** — Must pass all security scans
+
+### Reporting Security Issues
+
+**Found a vulnerability or leak?**
+
+📧 Email: [security@alteragro.com.br](mailto:security@alteragro.com.br)
+📖 Policy: [.github/SECURITY.md](.github/SECURITY.md)
+⏱️ Response: 24 hours acknowledgment, 90-day coordinated disclosure
+
+**Safe Harbor:** We commit to not pursuing legal action against good-faith security researchers.
+
+### Information Classification
+
+All Alter Agro information follows a **4-level classification system**:
+
+- **P0 - Public** → This repository (specs, docs, legal)
+- **P1 - Internal** → Team wikis, meeting notes
+- **P2 - Confidential** → Source code, contracts, roadmap
+- **P3 - Trade Secret** → Prompts, models, secrets, customer PII
+
+📖 Full guide: [Information Classification Guide](docs/INFORMATION_CLASSIFICATION_GUIDE.md)
+
+### For Contributors
+
+**Before contributing, ensure:**
+
+✅ Content is **P0 - Public** (specifications only)
+✅ No secrets, credentials, or API keys
+✅ No customer data or business information
+✅ Pre-commit hooks installed (`.github/scripts/install-hooks.sh`)
+✅ Commits are GPG-signed
+✅ Hash ledger updated (`python infra/github/verify_hashes.py --update`)
+
+📖 Full guide: [Security Contributing Guide](.github/CONTRIBUTING_SECURITY.md)
+
+---
+
 ## 🔍 Usage & Validation
 
 | Action | Command |
 | :------ | :------ |
 | Verify hash ledger | `python infra/github/verify_hashes.py`
 | Run KPI scorer | `python infra/github/kpi_score.py --min-faith-premise 0.80 --min-contradiction-coverage 0.90`
+| **Scan for secrets** | `python infra/github/scan_secrets.py --strict`
+| **Check allowlist** | `python infra/github/check_allowlist.py`
 | Update ledger after edits | `python infra/github/verify_hashes.py --update`
 | Submit PR | `git commit -S -m "Spec:<scope> [evidence:<source_id@span>]"`
 
