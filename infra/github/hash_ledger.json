@@ -1,6 +1,8 @@
 {
   ".github/CONTRIBUTING.md": "f94a5e70c85fbdd168f3e0178912d9b7d4b448bc383b8b23ea2673223f48d6fd",
   ".github/CONTRIBUTING_SECURITY.md": "114cf17d29d002cb66170b183ccbabea3586b745dfc8b9b9e215b0742b56cdf6",
+  ".github/ISSUE_TEMPLATE/01-trademark-inpi.md": "85f83b65836f0e79893ee8d377204c2005652a4564f3497501d4ab418b651b72",
+  ".github/ISSUE_TEMPLATE/02-defensive-publication.md": "3c1abcba7abbd418f9623c783fc88f37edb9721805de1822398220847d6a9cca",
   ".github/ISSUE_TEMPLATE/security-issue.md": "9ad28c353b9d670f7228a51309d32d37c2859169437d937435020bfca2735741",
   ".github/SECURITY.md": "3283653a07f03372945e52ec18673f762b095a9d2f90cdd441dae0dbdc2b29b5",
   ".github/workflows/ci.yml": "5fbdc9da4c6cee2e58b4d8187a94deeeac6a2a8ede3d99b39d3c6691b13e6800",
@@ -10,6 +12,7 @@
   "docs/INFORMATION_CLASSIFICATION_GUIDE.md": "21850bb940bddc96b1c363197ee669d44c849921fd2a5c725aa6ad899973b998",
   "docs/PRIVATE_REPOSITORY_GUIDE.md": "1d6bae82e95ed7f5ab0f8fe339de91053e0df9a443eb56d0902eb2fb4c4020da",
   "docs/README_ARCH.md": "8cb1bb35938933f88666a25f8a397cf9c0a55709ce0b7435a773e8b4e6442a1c",
+  "docs/ROADMAP.md": "a73a9ced1c20985de6424f3282cce48176c59f79d8416cc543087cdf5c8efd47",
   "docs/samples/cpr_cra_demo.md": "26a144145422bcbfacc306a0e614ad6b78df8fd7c7491c9ce2bbe72c16af8dc9",
   "infra/github/check_allowlist.py": "5740e7e7f04d0ad9e681b8cde035a81d27b1b1b50c12c3e969b430c0fa6943b0",
   "infra/github/hash_ledger.json": "",
