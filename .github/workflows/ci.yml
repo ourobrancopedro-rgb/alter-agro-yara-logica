@@ -75,10 +75,53 @@ jobs:
       - name: Install Python requirements
         run: |
           python -m pip install --upgrade pip
+          pip install jsonschema
 
       - name: Verify hash ledger
         run: |
           python infra/github/verify_hashes.py
+
+      - name: Validate LSA JSON schemas
+        run: |
+          echo "Validating LSA artifact schemas..."
+          for file in lsa/spec/*.json; do
+            if [ -f "$file" ]; then
+              echo "Checking schema: $file"
+              python infra/github/validate_lsa_schema.py "$file" || exit 1
+            fi
+          done
+          echo "✅ All LSA schemas valid"
+
+      - name: Validate LSA structure (circular dependencies, references)
+        run: |
+          echo "Validating LSA structure..."
+          for file in lsa/spec/*.json; do
+            if [ -f "$file" ]; then
+              echo "Checking structure: $file"
+              python infra/github/validate_lsa_structure.py "$file" || exit 1
+            fi
+          done
+          echo "✅ All LSA structures valid"
+
+      - name: Validate confidence propagation
+        run: |
+          echo "Validating confidence propagation..."
+          for file in lsa/spec/*.json; do
+            if [ -f "$file" ]; then
+              echo "Checking confidence: $file"
+              python infra/github/validate_confidence.py "$file" || exit 1
+            fi
+          done
+          echo "✅ All confidence scores valid"
+
+      - name: Calculate contradiction coverage
+        run: |
+          echo "Calculating contradiction coverage..."
+          if ls lsa/spec/*.json 1> /dev/null 2>&1; then
+            python infra/github/calculate_contradiction_coverage.py lsa/spec/*.json || exit 1
+          else
+            echo "⚠️  No LSA artifacts found, skipping"
+          fi
 
       - name: Run KPI gates
         run: |
