@@ -1,5 +1,21 @@
 # 🧠 YARA Lógica — LSA / PICC + RAG Hybrid (Open Specifications)
 
+[![View on GitHub](https://img.shields.io/badge/View%20Repository-Open-blue?logo=github)](https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-green.svg)](legal/LICENSE)
+[![Integrity Seal](https://img.shields.io/badge/No%20Hash-No%20Commit-orange.svg)](infra/github/hash_ledger.json)
+
+> **A Logic-Sorting Architecture for auditable AI reasoning and regenerative-carbon compliance.**  
+> Official public specification repository maintained by **Alter Agro Ltda.**
+
+---
+
+## 🔗 Repository Information
+
+- **Main URL:** [https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica](https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica)  
+- **Mirror Purpose:** Public audit, education, and reproducibility of YARA Lógica’s logic chain (LSA/PICC) and retrieval protocols (RAG Hybrid).  
+- **Implementation Notice:** Proprietary runtime is maintained in private repositories under Alter Agro’s control.
+# 🧠 YARA Lógica — LSA / PICC + RAG Hybrid (Open Specifications)
+
 > **A Logic-Sorting Architecture for auditable AI reasoning and regenerative-carbon compliance.**
 > Public specifications and validation artifacts of the **YARA Lógica System**, developed and maintained by **Alter Agro Ltda.**
 
