@@ -1,6 +1,7 @@
-name: Path Allowlist
+name: Path Allow-List (Spec-Only)
 on:
   pull_request:
+  push:
     branches: [ main ]
 
 jobs:
@@ -9,10 +10,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Enforce allowlist
+
+      - name: Enforce spec-only paths
         run: |
-          set -eo pipefail
-          ALLOWLIST='^(lsa/spec/|rag/spec/|docs/|infra/github/|decisions/|tools/|.github/|README.md$|LICENSE$|pyproject.toml$|.gitignore$)'
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}... | sed '/^$/d' || true)
-          echo "Changed files:"; echo "$CHANGED"
-          echo "$CHANGED" | grep -Ev "$ALLOWLIST" && { echo "❌ File outside allowlist."; exit 1; } || echo "✅ Allowlist OK"
+          # Allowed top-level paths for spec-only repository
+          ALLOWED_PATHS='^(\.github/|docs/|policy/|governance/|lsa/|rag/|ccb/|kpi/|hashes/|manifests/|legal/|NOTICE$|LICENSE$|README\.md$|SECURITY\.md$|CONTRIBUTING\.md$|RESPONSE_PLAYBOOKS\.md$|\.pre-commit-config\.yaml$|\.gitleaks\.toml$|\.gitignore$)'
+          ALLOWED_EXT='(\.md|\.txt|\.yaml|\.yml|\.json)$'
+
+          # Determine changed files (works for push and PR)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }} --depth=1
+            files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            files=$(git diff --name-only HEAD~1)
+          fi
+
+          echo "$files" | awk 'NF' > changed.txt || true
+
+          # Block disallowed paths
+          bad_paths=$(grep -Ev "${ALLOWED_PATHS}" changed.txt || true)
+          if [ -n "$bad_paths" ]; then
+            echo "❌ Disallowed paths in spec-only repository:"
+            echo "$bad_paths"
+            exit 1
+          fi
+
+          # Extra extension guard
+          bad_ext=$(grep -E '\.' changed.txt | grep -Ev "${ALLOWED_EXT}" || true)
+          if [ -n "$bad_ext" ]; then
+            echo "❌ Disallowed file extensions:"
+            echo "$bad_ext"
+            exit 1
+          fi
+
+      - name: Block binaries & model artifacts
+        run: |
+          disallowed='(\.py$|\.ipynb$|\.so$|\.dll$|\.dylib$|\.bin$|\.onnx$|\.pt$|\.pth$|\.ckpt$|\.pkl$|\.tar(\.gz)?$|\.zip$|\.7z$|\.rar$|\.csv$|\.parquet$|id_rsa|id_ed25519|\.env(\.|$)|\.pem$)'
+          if git ls-files | egrep -i "${disallowed}"; then
+            echo "❌ Runtime/code/artifacts are not allowed in this public spec repository."
+            exit 1
+          fi
