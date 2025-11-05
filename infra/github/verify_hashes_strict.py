@@ -60,7 +60,10 @@ def main():
 
     mismatches=[]
     for f in expected_files:
-        if f in EXCLUDED_FILES: 
+        if f in EXCLUDED_FILES:
+            continue
+        # Skip hash verification for self-referential ledger file
+        if f == str(LEDGER_PATH):
             continue
         p=Path(f)
         got=sha256_file(p)
