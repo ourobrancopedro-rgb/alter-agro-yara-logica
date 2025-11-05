@@ -1,0 +1,17 @@
+title = "Alter Agro / YARA Lógica – spec-only secret policy"
+
+[allowlist]
+description = "Spec-only repo—block obvious secrets, allow docs/text"
+files = [
+  '''^docs/''',
+  '''^policy/''',
+  '''^governance/''',
+  '''^lsa/''',
+  '''^rag/''',
+  '''^kpi/''',
+  '''^hashes/''',
+  '''^manifests/''',
+  '''^legal/''',
+  '''^ccb/''',
+  '''^\.github/''',
+]

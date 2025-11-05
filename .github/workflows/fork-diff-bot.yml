@@ -1,0 +1,18 @@
+name: Fork Diff Bot
+on:
+  schedule: [{ cron: "0 7 * * 1,4" }]  # Mon & Thu 07:00 BRT
+  workflow_dispatch:
+
+jobs:
+  audit-forks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run fork audit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/audit_forks.py
