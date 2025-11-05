@@ -236,6 +236,79 @@ All Alter Agro information follows a **4-level classification system**:
 
 ---
 
+## 🔐 YARA Lógica PICC Notarization (n8n → GitHub)
+
+**Production-ready specification for the n8n → GitHub notarization workflow.**
+
+This repository includes a complete, audit-focused specification for the **YARA Lógica PICC Notarization** lane, which provides an immutable decision ledger using GitHub Issues as the record store, orchestrated via n8n with deterministic hashing and centralized validation.
+
+### Key Components
+
+| Component | Location | Description |
+|:----------|:---------|:------------|
+| **JSON Schema** | [`/spec/schemas/picc-1.0.schema.json`](spec/schemas/picc-1.0.schema.json) | PICC-1.0 schema with HTTPS-only evidence and FACT≥2 rule |
+| **n8n Workflow** | [`/spec/workflows/n8n_yara_picc_notarization.json`](spec/workflows/n8n_yara_picc_notarization.json) | Sanitized n8n export (validation, hash, GitHub integration) |
+| **API Contract** | [`/spec/contracts/notarization_api_contract.md`](spec/contracts/notarization_api_contract.md) | Request/response format, HMAC auth, canonical hash |
+| **Label Taxonomy** | [`/spec/labels/taxonomy.md`](spec/labels/taxonomy.md) | GitHub label schema for idempotency and audit trails |
+| **Runbooks** | [`/spec/ops/runbook_notarization.md`](spec/ops/runbook_notarization.md) | Operational procedures (DLQ, rate limits, troubleshooting) |
+| **Threat Model** | [`/spec/ops/threat_model_stride.md`](spec/ops/threat_model_stride.md) | STRIDE threat analysis and mitigations |
+| **Rate Limit Design** | [`/spec/ops/rate_limit_nonce_design.md`](spec/ops/rate_limit_nonce_design.md) | Redis-backed nonce deduplication and token bucket rate limiting |
+| **Client Examples** | [`/examples/clients/`](examples/clients/) | JavaScript and Python client stubs with HMAC signing |
+
+### Quick Start
+
+1. **Import n8n workflow:**
+   ```bash
+   # Import /spec/workflows/n8n_yara_picc_notarization.json into n8n
+   # Configure credentials: GitHub OAuth2, Redis connection
+   # Set environment: HMAC_SECRET, GITHUB_OWNER, GITHUB_REPO
+   ```
+
+2. **Test with client:**
+   ```bash
+   # JavaScript
+   cd examples/clients/javascript
+   npm install node-fetch
+   export N8N_WEBHOOK_URL="https://your-n8n.com/webhook/yara/picc/notarize"
+   export HMAC_SECRET="your-secret"
+   node submit_decision.js
+
+   # Python
+   cd examples/clients/python
+   pip install requests
+   export N8N_WEBHOOK_URL="https://your-n8n.com/webhook/yara/picc/notarize"
+   export HMAC_SECRET="your-secret"
+   python submit_decision.py
+   ```
+
+3. **Manual smoke test (GitHub Actions):**
+   - Navigate to Actions → "n8n Ping (spec smoke)"
+   - Run workflow manually
+   - Paste n8n webhook URL at runtime
+   - Review output for connectivity validation
+
+### Security Features
+
+- ✅ **HMAC-SHA256 authentication** (X-Signature-256 header)
+- ✅ **Timestamp window validation** (±300s, replay protection)
+- ✅ **Nonce deduplication** (Redis-backed, single-use enforcement)
+- ✅ **Canonical hashing** (SHA-256, deterministic idempotency)
+- ✅ **HTTPS-only evidence** (schema-enforced)
+- ✅ **Rate limiting** (Token bucket, 100 req/10min default)
+- ✅ **GitHub API quota management** (exponential backoff)
+
+### Operational Notes
+
+- **No secrets in repo:** All sensitive values use placeholders (`<SET_IN_N8N>`)
+- **Spec-only:** This is a specification repository; runtime deployment is private
+- **Idempotency:** Duplicate decisions detected via `hash:<first16>` label
+- **DLQ handling:** Failed GitHub API calls logged to Dead Letter Queue for reprocessing
+- **Monitoring:** Track BAD_SIG rate, DLQ depth, GitHub quota remaining
+
+For detailed implementation guidance, see the [API Contract](spec/contracts/notarization_api_contract.md) and [Runbook](spec/ops/runbook_notarization.md).
+
+---
+
 ## 🔒 Security & Change Control
 
 - **Security contact:** [contatoalteragro@gmail.com](mailto:contatoalteragro@gmail.com)

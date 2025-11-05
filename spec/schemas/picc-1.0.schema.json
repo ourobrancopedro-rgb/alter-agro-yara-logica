@@ -1,0 +1,55 @@
+{
+  "$id": "https://yara.logica/schema/picc-1.0.json",
+  "type": "object",
+  "required": ["schema_version", "ts", "nonce", "decision"],
+  "properties": {
+    "schema_version": { "const": "PICC-1.0" },
+    "ts": { "type": "integer", "minimum": 1609459200 },
+    "nonce": { "type": "string", "minLength": 8, "maxLength": 128 },
+    "decision": {
+      "type": "object",
+      "required": ["question", "conclusion", "confidence", "premises", "falsifier"],
+      "properties": {
+        "question": { "type": "string", "minLength": 3, "maxLength": 400 },
+        "conclusion": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "premises": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["type", "text"],
+            "properties": {
+              "type": { "enum": ["FACT", "ASSUMPTION", "EXPERT_OPINION"] },
+              "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "evidence": {
+                "type": "array",
+                "items": { "type": "string", "pattern": "^https://.+" }
+              }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "type": { "const": "FACT" } } },
+                "then": { "required": ["evidence"], "properties": { "evidence": { "minItems": 2 } } }
+              }
+            ],
+            "additionalProperties": false
+          }
+        },
+        "inferences": { "type": "array", "items": { "type": "string", "maxLength": 600 } },
+        "contradictions": { "type": "array", "items": { "type": "string", "maxLength": 600 } },
+        "falsifier": { "type": "string", "minLength": 10, "maxLength": 1000 }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "actor": { "type": "string", "maxLength": 120 },
+        "context": { "type": "string", "maxLength": 200 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
