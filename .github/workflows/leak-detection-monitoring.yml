@@ -2,7 +2,7 @@ name: Leak Detection & Monitoring
 
 # Dedicated workflow for continuous leak detection monitoring
 # Runs comprehensive scans to prevent trade secret exposure
-# Complements information-barrier.yml with focused monitoring
+# Focuses on internal repository secret scanning
 
 on:
   push:
@@ -12,6 +12,7 @@ on:
   schedule:
     # Run daily at 02:00 UTC for continuous monitoring
     - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   leak-monitoring:

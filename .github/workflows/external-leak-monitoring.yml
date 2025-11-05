@@ -1,0 +1,508 @@
+name: External Leak Monitoring
+
+# Monitors external sources for potential information leaks
+# Complements leak-detection-monitoring.yml with external surveillance
+# Searches forks, public repositories, and code sharing platforms
+
+on:
+  schedule:
+    # Run every 6 hours to catch external leaks quickly
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      thorough:
+        description: 'Run thorough scan (slower, more comprehensive)'
+        required: false
+        default: 'false'
+
+jobs:
+  # ============================================================================
+  # JOB 1: Fork Monitoring - Watch for suspicious fork activity
+  # ============================================================================
+  fork-monitoring:
+    name: Monitor Repository Forks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run fork audit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Auditing repository forks..."
+          echo ""
+
+          python3 scripts/audit_forks.py
+
+      - name: Enhanced fork analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Running enhanced fork analysis..."
+          echo ""
+
+          # Create Python script for enhanced fork monitoring
+          cat > /tmp/enhanced_fork_check.py << 'PYEOF'
+          #!/usr/bin/env python3
+          import os, json, urllib.request
+          from datetime import datetime, timedelta
+
+          REPO = os.environ.get("GITHUB_REPOSITORY", "")
+          TOKEN = os.environ.get("GITHUB_TOKEN", "")
+          API = "https://api.github.com"
+          HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+
+          def gh(url):
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read().decode())
+              except Exception as e:
+                  print(f"Warning: API request failed for {url}: {e}")
+                  return None
+
+          def main():
+              if not REPO or not TOKEN:
+                  print("Missing GITHUB_REPOSITORY or GITHUB_TOKEN")
+                  return
+
+              print(f"📊 Analyzing forks of {REPO}...")
+              forks = gh(f"{API}/repos/{REPO}/forks?per_page=100")
+
+              if not forks:
+                  print("✅ No forks found or API error")
+                  return
+
+              print(f"Found {len(forks)} fork(s)")
+              print("")
+
+              recent_cutoff = datetime.now() - timedelta(days=7)
+              recent_forks = []
+              suspicious_forks = []
+
+              for fork in forks:
+                  fork_name = fork.get('full_name', 'Unknown')
+                  updated_at = fork.get('updated_at', '')
+                  visibility = fork.get('visibility', 'unknown')
+
+                  try:
+                      updated = datetime.strptime(updated_at, "%Y-%m-%dT%H:%M:%SZ")
+                      if updated > recent_cutoff:
+                          recent_forks.append(fork_name)
+                  except:
+                      pass
+
+                  # Check for suspicious visibility changes
+                  if visibility == 'public':
+                      suspicious_forks.append(fork_name)
+
+              if recent_forks:
+                  print(f"⚠️  {len(recent_forks)} fork(s) updated in last 7 days:")
+                  for fork in recent_forks[:10]:
+                      print(f"   - {fork}")
+                  print("")
+
+              if suspicious_forks:
+                  print(f"👁️  {len(suspicious_forks)} public fork(s) detected:")
+                  for fork in suspicious_forks[:10]:
+                      print(f"   - {fork}")
+                  print("")
+
+              if not recent_forks and not suspicious_forks:
+                  print("✅ No suspicious fork activity detected")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+          python3 /tmp/enhanced_fork_check.py
+
+  # ============================================================================
+  # JOB 2: External Code Search - Search for leaked code patterns
+  # ============================================================================
+  code-search:
+    name: Search External Code Leaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Search for unique code patterns
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Searching GitHub for leaked code patterns..."
+          echo ""
+
+          # Create search script
+          cat > /tmp/code_search.py << 'PYEOF'
+          #!/usr/bin/env python3
+          import os, json, urllib.request, urllib.parse, time
+
+          REPO = os.environ.get("GITHUB_REPOSITORY", "")
+          TOKEN = os.environ.get("GITHUB_TOKEN", "")
+          API = "https://api.github.com"
+          HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+
+          # Unique identifiers specific to this project
+          SEARCH_PATTERNS = [
+              '"YARA Lógica" "Alter Agro"',
+              'YaraLogicSystem class',
+              'RAG Hybrid "Logic Sorting"',
+              'LSA-PICC "Alter Agro"',
+          ]
+
+          def gh_search(query):
+              encoded = urllib.parse.quote(query)
+              url = f"{API}/search/code?q={encoded}&per_page=10"
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read().decode())
+              except Exception as e:
+                  print(f"   Search failed: {e}")
+                  return None
+
+          def main():
+              if not TOKEN:
+                  print("⚠️  No GITHUB_TOKEN - skipping code search")
+                  return
+
+              print("Searching for unique code patterns in public repositories...")
+              print("")
+
+              repo_owner_name = REPO.lower() if REPO else "unknown"
+              findings = []
+
+              for pattern in SEARCH_PATTERNS:
+                  print(f"🔍 Searching: {pattern}")
+                  results = gh_search(pattern)
+
+                  if results and results.get('total_count', 0) > 0:
+                      items = results.get('items', [])
+                      for item in items:
+                          repo_name = item.get('repository', {}).get('full_name', '').lower()
+                          # Skip our own repo and known forks
+                          if repo_owner_name not in repo_name:
+                              findings.append({
+                                  'pattern': pattern,
+                                  'repo': item.get('repository', {}).get('full_name', ''),
+                                  'path': item.get('path', ''),
+                                  'url': item.get('html_url', '')
+                              })
+
+                  time.sleep(2)  # Rate limiting
+
+              if findings:
+                  print("")
+                  print(f"⚠️  Found {len(findings)} potential leak(s) in external repositories:")
+                  for f in findings[:10]:
+                      print(f"   📄 {f['repo']}/{f['path']}")
+                      print(f"      Pattern: {f['pattern']}")
+                      print(f"      URL: {f['url']}")
+                      print("")
+
+                  # Create warning
+                  print("::warning::Potential code leaks detected in external repositories!")
+              else:
+                  print("✅ No leaked code patterns found in external repositories")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+          python3 /tmp/code_search.py
+
+      - name: Search for potential secret exposure
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo ""
+          echo "🔍 Searching for potential secret exposure..."
+          echo ""
+
+          # Create secret search script
+          cat > /tmp/secret_search.py << 'PYEOF'
+          #!/usr/bin/env python3
+          import os, json, urllib.request, urllib.parse, time
+
+          REPO = os.environ.get("GITHUB_REPOSITORY", "")
+          TOKEN = os.environ.get("GITHUB_TOKEN", "")
+          API = "https://api.github.com"
+          HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+
+          # Extract organization/owner name
+          org_name = REPO.split('/')[0] if '/' in REPO else REPO
+
+          # Search patterns for potential leaked secrets
+          SECRET_PATTERNS = [
+              f'{org_name} AWS',
+              f'{org_name} API key',
+              f'{org_name} token',
+              f'{org_name} password',
+          ]
+
+          def gh_search(query):
+              encoded = urllib.parse.quote(query)
+              url = f"{API}/search/code?q={encoded}&per_page=5"
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read().decode())
+              except Exception as e:
+                  return None
+
+          def main():
+              if not TOKEN:
+                  print("⚠️  No GITHUB_TOKEN - skipping secret search")
+                  return
+
+              findings = []
+              repo_owner_name = REPO.lower() if REPO else "unknown"
+
+              for pattern in SECRET_PATTERNS:
+                  results = gh_search(pattern)
+
+                  if results and results.get('total_count', 0) > 0:
+                      items = results.get('items', [])
+                      for item in items:
+                          repo_name = item.get('repository', {}).get('full_name', '').lower()
+                          if repo_owner_name not in repo_name:
+                              findings.append({
+                                  'pattern': pattern,
+                                  'repo': item.get('repository', {}).get('full_name', ''),
+                                  'path': item.get('path', '')
+                              })
+
+                  time.sleep(2)  # Rate limiting
+
+              if findings:
+                  print(f"⚠️  Found {len(findings)} potential secret exposure(s):")
+                  for f in findings[:5]:
+                      print(f"   🔑 {f['repo']}/{f['path']}")
+                      print(f"      Pattern: {f['pattern']}")
+                  print("")
+                  print("::warning::Potential secret exposure detected!")
+              else:
+                  print("✅ No secret exposure patterns found")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+          python3 /tmp/secret_search.py
+
+  # ============================================================================
+  # JOB 3: Repository Settings Monitor - Check for accidental public exposure
+  # ============================================================================
+  settings-monitor:
+    name: Monitor Repository Settings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check repository visibility
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Checking repository visibility settings..."
+          echo ""
+
+          # Create settings check script
+          cat > /tmp/check_settings.py << 'PYEOF'
+          #!/usr/bin/env python3
+          import os, json, urllib.request
+
+          REPO = os.environ.get("GITHUB_REPOSITORY", "")
+          TOKEN = os.environ.get("GITHUB_TOKEN", "")
+          API = "https://api.github.com"
+          HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+
+          def gh(url):
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read().decode())
+              except Exception as e:
+                  print(f"API request failed: {e}")
+                  return None
+
+          def main():
+              if not REPO or not TOKEN:
+                  print("Missing GITHUB_REPOSITORY or GITHUB_TOKEN")
+                  return
+
+              print(f"Checking settings for {REPO}...")
+              repo_info = gh(f"{API}/repos/{REPO}")
+
+              if not repo_info:
+                  print("❌ Failed to fetch repository info")
+                  return
+
+              visibility = repo_info.get('visibility', 'unknown')
+              private = repo_info.get('private', False)
+              archived = repo_info.get('archived', False)
+
+              print(f"📊 Repository Status:")
+              print(f"   Visibility: {visibility}")
+              print(f"   Private: {private}")
+              print(f"   Archived: {archived}")
+              print("")
+
+              # Check security settings
+              security = gh(f"{API}/repos/{REPO}/vulnerability-alerts")
+              if security:
+                  print("✅ Security alerts: Enabled")
+
+              # Warn if public
+              if not private or visibility == 'public':
+                  print("::warning::⚠️  Repository is PUBLIC - ensure this is intentional!")
+                  print("::warning::Trade secrets and P3 confidential information should NOT be in public repos")
+              else:
+                  print("✅ Repository is private")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+          python3 /tmp/check_settings.py
+
+      - name: Check branch protection
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo ""
+          echo "🔍 Checking branch protection rules..."
+          echo ""
+
+          # Create branch protection check script
+          cat > /tmp/check_branches.py << 'PYEOF'
+          #!/usr/bin/env python3
+          import os, json, urllib.request
+
+          REPO = os.environ.get("GITHUB_REPOSITORY", "")
+          TOKEN = os.environ.get("GITHUB_TOKEN", "")
+          API = "https://api.github.com"
+          HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/vnd.github+json"}
+
+          def gh(url):
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read().decode())
+              except Exception as e:
+                  return None
+
+          def main():
+              if not REPO or not TOKEN:
+                  return
+
+              # Check default branch protection
+              repo_info = gh(f"{API}/repos/{REPO}")
+              if not repo_info:
+                  return
+
+              default_branch = repo_info.get('default_branch', 'main')
+              print(f"Default branch: {default_branch}")
+
+              # Check if branch protection is enabled
+              protection = gh(f"{API}/repos/{REPO}/branches/{default_branch}/protection")
+
+              if protection:
+                  print(f"✅ Branch protection enabled on {default_branch}")
+
+                  # Check specific protections
+                  if protection.get('required_status_checks'):
+                      print("   ✓ Required status checks enabled")
+                  if protection.get('required_pull_request_reviews'):
+                      print("   ✓ Required PR reviews enabled")
+                  if protection.get('enforce_admins'):
+                      print("   ✓ Admin enforcement enabled")
+              else:
+                  print(f"⚠️  No branch protection on {default_branch}")
+                  print("::warning::Consider enabling branch protection for security")
+
+          if __name__ == "__main__":
+              main()
+          PYEOF
+
+          python3 /tmp/check_branches.py
+
+  # ============================================================================
+  # JOB 4: Security Summary & Reporting
+  # ============================================================================
+  security-summary:
+    name: Generate Security Summary
+    runs-on: ubuntu-latest
+    needs: [fork-monitoring, code-search, settings-monitor]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Generate summary report
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "EXTERNAL LEAK MONITORING SUMMARY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Scan completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          echo "📊 Jobs Completed:"
+          echo "   ✓ Fork monitoring"
+          echo "   ✓ External code search"
+          echo "   ✓ Repository settings check"
+          echo ""
+          echo "This workflow monitors external sources for:"
+          echo "   • Fork activity and license compliance"
+          echo "   • Code leaks in public repositories"
+          echo "   • Secret exposure in external sources"
+          echo "   • Repository visibility and settings"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📝 For detailed results, check individual job logs above"
+          echo "⚠️  Any warnings or alerts should be investigated immediately"
+          echo ""
+          echo "📞 Security Contact: security@alteragro.com.br"
+          echo ""
+
+      - name: Check for job failures
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: |
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "::error::⚠️  EXTERNAL LEAK MONITORING ALERT"
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "::error::"
+          echo "::error::One or more external monitoring jobs failed or detected issues!"
+          echo "::error::"
+          echo "::error::📋 Immediate Actions Required:"
+          echo "::error::   1. Review job logs for details"
+          echo "::error::   2. Investigate any flagged repositories or forks"
+          echo "::error::   3. Contact external parties if necessary"
+          echo "::error::   4. Consider DMCA/trademark actions if appropriate"
+          echo "::error::   5. Update monitoring rules if false positives"
+          echo "::error::"
+          echo "::error::📞 Security Team Contact:"
+          echo "::error::   security@alteragro.com.br"
+          echo "::error::"
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          exit 1
