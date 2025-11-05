@@ -1,0 +1,9 @@
+[project]
+name = "yara-logica-cli"
+version = "0.1.0"
+description = "YARA Lógica – GitHub specs integration CLI"
+requires-python = ">=3.10"
+dependencies = ["requests>=2.31.0"]
+
+[project.scripts]
+yara = "tools.yara_specs_cli:main"

@@ -1,0 +1,20 @@
+name: KPI Checks
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  kpi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Score KPIs
+        run: |
+          python infra/github/kpi_score.py --spec_dir lsa/spec --out infra/github/kpi_report.json
+      - name: Enforce thresholds
+        run: |
+          python infra/github/kpi_assert.py --report infra/github/kpi_report.json --min_faithfulness 0.95 --min_contradiction 0.90
