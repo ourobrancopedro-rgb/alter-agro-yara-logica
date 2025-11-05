@@ -1,0 +1,35 @@
+name: Test Pre-push & Ledger
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install hooks
+        run: .github/scripts/install-hooks.sh
+
+      - name: Create a public-spec change (should require ledger)
+        run: |
+          echo "# CI doc check" >> docs/CI_DOC.md
+          git add docs/CI_DOC.md
+
+      - name: Run strict verify (expected to fail before ledger update)
+        continue-on-error: true
+        run: |
+          python infra/github/verify_hashes_strict.py
+
+      - name: Update ledger and re-verify
+        run: |
+          python infra/github/update_ledger.py --staged
+          git add infra/github/hash_ledger.json
+          python infra/github/verify_hashes_strict.py

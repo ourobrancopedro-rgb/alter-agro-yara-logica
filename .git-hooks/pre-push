@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"; cd "$ROOT"
+
+have(){ command -v "$1" >/dev/null 2>&1; }
+py(){ if have python3; then python3 "$@"; else python "$@"; fi; }
+
+SCOPE_REGEX='^(\.gitignore|README\.md|lsa/spec/|rag/spec/|docs/|legal/|infra/github/|\.github/)'
+
+err(){ echo "❌ $*" >&2; }
+ok(){ echo "✅ $*"; }
+info(){ echo "• $*"; }
+
+unsigned=false; changed=false; missing=false
+
+# Read push updates from stdin (provided by Git)
+while read -r lref lsha rref rsha; do
+  [[ -z "${lref:-}" ]] && continue
+  # Commit range: new branch or update
+  if [[ "${rsha:-}" == "0000000000000000000000000000000000000000" ]]; then
+    rng="${lsha}"
+  else
+    rng="${rsha}..${lsha}"
+  fi
+
+  # Enforce GPG on all commits in range
+  while IFS= read -r ln; do
+    [[ -z "$ln" ]] && continue
+    st="${ln%% *}"; rest="${ln#* }"; chash="${rest%% *}"
+    [[ "$st" != "G" ]] && unsigned=true && echo "   - commit $chash not GPG-signed (status=$st)"
+  done < <(git log --pretty=format:'%G? %H %s' "$rng" || true)
+
+  # Detect changes in public-spec scope
+  mapfile -t files < <(git diff --name-only "$rng" || true)
+  if (printf "%s\n" "${files[@]}" | grep -Eq "$SCOPE_REGEX"); then
+    changed=true
+    if ! (printf "%s\n" "${files[@]}" | grep -q '^infra/github/hash_ledger.json$'); then
+      missing=true
+    fi
+  fi
+done
+
+echo "🔒 YARA pre-push: running checks…"
+$unsigned && err "Found unsigned commits in push range" && exit 1 || ok "All commits are GPG-signed"
+
+if $changed; then
+  info "Public-spec scope changed"
+  $missing && err "hash_ledger.json not updated for public change" && exit 1
+  [[ -f infra/github/verify_hashes_strict.py ]] || { err "infra/github/verify_hashes_strict.py missing"; exit 1; }
+  info "Running strict ledger verification"
+  py infra/github/verify_hashes_strict.py
+  ok "Ledger strict verification passed"
+else
+  info "No public-spec changes detected"
+fi
+
+ok "pre-push checks passed"
+exit 0
