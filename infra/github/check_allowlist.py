@@ -59,15 +59,26 @@ class AllowlistChecker:
         r"^docs/",
         r"^infra/github/",
         r"^legal/",
+        r"^tools/",
+        r"^scripts/",
+        r"^tests/",
         r"^\.git-hooks/",
         r"^README\.md$",
+        r"^SECURITY\.md$",
+        r"^NOTICE$",
+        r"^RESPONSE_PLAYBOOKS\.md$",
         r"^\.gitignore$",
+        r"^\.gitleaks\.toml$",
+        r"^\.gitleaksignore$",
+        r"^\.trufflehog\.yaml$",
+        r"^\.pre-commit-config\.yaml$",
+        r"^pyproject\.toml$",
     ]
 
     # File type restrictions by directory
     FILE_TYPE_RULES = {
         "lsa/spec/": {
-            "allowed": [".md", ".json", ".yaml", ".yml"],
+            "allowed": [".md", ".json", ".yaml", ".yml", ".py"],  # .py for examples
             "max_size_kb": 500,
         },
         "rag/spec/": {
@@ -75,7 +86,7 @@ class AllowlistChecker:
             "max_size_kb": 500,
         },
         "docs/": {
-            "allowed": [".md", ".pdf", ".png", ".jpg", ".svg"],
+            "allowed": [".md", ".pdf", ".png", ".jpg", ".svg", ".json"],  # .json for examples
             "max_size_kb": 2048,
         },
         "infra/github/": {
@@ -83,11 +94,23 @@ class AllowlistChecker:
             "max_size_kb": 1024,
         },
         "legal/": {
-            "allowed": [".md", ".txt", ".pdf"],
+            "allowed": [".md", ".txt", ".pdf", ""],  # "" for LICENSE file
             "max_size_kb": 1024,
         },
         ".github/": {
             "allowed": [".md", ".yml", ".yaml", ".sh"],
+            "max_size_kb": 512,
+        },
+        "tools/": {
+            "allowed": [".py", ".sh", ".md", ".json"],
+            "max_size_kb": 1024,
+        },
+        "scripts/": {
+            "allowed": [".py", ".sh", ".md"],
+            "max_size_kb": 512,
+        },
+        "tests/": {
+            "allowed": [".py", ".json", ".yaml", ".yml"],
             "max_size_kb": 512,
         },
     }
