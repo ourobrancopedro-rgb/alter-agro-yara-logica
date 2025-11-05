@@ -1,0 +1,19 @@
+name: Verify Hash Ledger
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-hash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Verify hashes (No Hash, No Commit)
+        run: |
+          python infra/github/verify_hashes.py \
+            --ledger infra/github/hash_ledger.json \
+            --strict
