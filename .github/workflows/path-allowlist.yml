@@ -14,8 +14,8 @@ jobs:
       - name: Enforce spec-only paths
         run: |
           # Allowed top-level paths for spec-only repository
-          ALLOWED_PATHS='^(\.github/|docs/|policy/|governance/|lsa/|rag/|ccb/|kpi/|hashes/|manifests/|legal/|NOTICE$|LICENSE$|README\.md$|SECURITY\.md$|CONTRIBUTING\.md$|RESPONSE_PLAYBOOKS\.md$|\.pre-commit-config\.yaml$|\.gitleaks\.toml$|\.gitignore$)'
-          ALLOWED_EXT='(\.md|\.txt|\.yaml|\.yml|\.json)$'
+          ALLOWED_PATHS='^(\.github/|docs/|policy/|governance/|lsa/|rag/|ccb/|kpi/|hashes/|manifests/|legal/|tools/|scripts/|tests/|infra/|NOTICE$|LICENSE$|README\.md$|SECURITY\.md$|CONTRIBUTING\.md$|RESPONSE_PLAYBOOKS\.md$|\.pre-commit-config\.yaml$|\.gitleaks\.toml$|\.gitleaksignore$|\.trufflehog\.yaml$|\.gitignore$|pyproject\.toml$)'
+          ALLOWED_EXT='(\.md|\.txt|\.yaml|\.yml|\.json|\.py|\.sh|\.toml)$'
 
           # Determine changed files (works for push and PR)
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -45,8 +45,26 @@ jobs:
 
       - name: Block binaries & model artifacts
         run: |
-          disallowed='(\.py$|\.ipynb$|\.so$|\.dll$|\.dylib$|\.bin$|\.onnx$|\.pt$|\.pth$|\.ckpt$|\.pkl$|\.tar(\.gz)?$|\.zip$|\.7z$|\.rar$|\.csv$|\.parquet$|id_rsa|id_ed25519|\.env(\.|$)|\.pem$)'
+          # Forbidden extensions (binaries, models, archives)
+          disallowed='(\.ipynb$|\.so$|\.dll$|\.dylib$|\.bin$|\.onnx$|\.pt$|\.pth$|\.ckpt$|\.pkl$|\.tar(\.gz)?$|\.zip$|\.7z$|\.rar$|\.csv$|\.parquet$|id_rsa|id_ed25519|\.env(\.|$)|\.pem$)'
+
+          # Allowed locations for .py files (excluding forbidden locations)
+          FORBIDDEN_PY=$(git ls-files | grep '\.py$' | \
+            grep -v '^infra/github/' | \
+            grep -v '^\.github/' | \
+            grep -v '^lsa/spec/examples/' | \
+            grep -v '^tools/' | \
+            grep -v '^scripts/' | \
+            grep -v '^tests/' || true)
+
+          if [ -n "$FORBIDDEN_PY" ]; then
+            echo "❌ Python files in disallowed locations:"
+            echo "$FORBIDDEN_PY"
+            exit 1
+          fi
+
+          # Check for other disallowed types
           if git ls-files | egrep -i "${disallowed}"; then
-            echo "❌ Runtime/code/artifacts are not allowed in this public spec repository."
+            echo "❌ Binaries/artifacts are not allowed in this repository."
             exit 1
           fi

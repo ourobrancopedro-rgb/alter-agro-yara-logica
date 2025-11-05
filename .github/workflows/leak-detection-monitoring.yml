@@ -1,0 +1,285 @@
+name: Leak Detection & Monitoring
+
+# Dedicated workflow for continuous leak detection monitoring
+# Runs comprehensive scans to prevent trade secret exposure
+# Complements information-barrier.yml with focused monitoring
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 02:00 UTC for continuous monitoring
+    - cron: '0 2 * * *'
+
+jobs:
+  leak-monitoring:
+    name: Continuous Leak Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comprehensive scanning
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ============================================================================
+      # GITLEAKS - Full repository scan
+      # ============================================================================
+      - name: Install GitLeaks
+        run: |
+          echo "📦 Installing GitLeaks v8.18.1..."
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.1_linux_x64.tar.gz
+          chmod +x gitleaks
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      - name: Run GitLeaks scan
+        run: |
+          echo "🔍 Running GitLeaks full repository scan..."
+          echo ""
+
+          set +e
+          gitleaks detect \
+            --source . \
+            --config .gitleaks.toml \
+            --report-path gitleaks-report.json \
+            --exit-code 1 \
+            --verbose
+          EXIT_CODE=$?
+          set -e
+
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "::error::❌ GitLeaks detected secrets!"
+
+            if [ -f gitleaks-report.json ]; then
+              FINDING_COUNT=$(cat gitleaks-report.json | jq 'length' 2>/dev/null || echo "unknown")
+              echo ""
+              echo "📋 Found $FINDING_COUNT potential secret(s)"
+
+              # Display findings with details
+              cat gitleaks-report.json | jq -r '.[] |
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                "🚨 Rule: \(.RuleID // .Description)\n" +
+                "   File: \(.File)\n" +
+                "   Line: \(.StartLine)\n" +
+                "   Commit: \(.Commit // "N/A")\n" +
+                "   Match: \(.Match // .Secret | .[0:80])...\n"
+              ' 2>/dev/null || cat gitleaks-report.json
+            fi
+
+            exit 1
+          fi
+
+          echo "✅ GitLeaks: No secrets detected"
+
+      # ============================================================================
+      # TRUFFELHOG - Entropy-based secret detection
+      # ============================================================================
+      - name: Install TruffleHog
+        run: |
+          echo "📦 Installing TruffleHog..."
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+          trufflehog --version
+
+      - name: Run TruffleHog scan
+        run: |
+          echo "🔍 Running TruffleHog entropy-based scan..."
+          echo ""
+
+          set +e
+          trufflehog filesystem . \
+            --json \
+            --no-update \
+            --concurrency=4 \
+            --exclude-paths=".git/" \
+            --exclude-paths="legal/" \
+            --exclude-paths=".github/workflows/" \
+            > trufflehog-report.json 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          if [ -f trufflehog-report.json ] && [ -s trufflehog-report.json ]; then
+            FINDING_COUNT=$(cat trufflehog-report.json | jq -s 'length' 2>/dev/null || echo "0")
+
+            if [ "$FINDING_COUNT" != "0" ] && [ "$FINDING_COUNT" != "null" ]; then
+              echo "::error::❌ TruffleHog detected $FINDING_COUNT potential secret(s)!"
+
+              cat trufflehog-report.json | jq -r 'limit(10; .[]) |
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                "🚨 Detector: \(.DetectorName // "Unknown")\n" +
+                "   File: \(.SourceMetadata.Data.Filesystem.file // "unknown")\n" +
+                "   Line: \(.SourceMetadata.Data.Filesystem.line // "N/A")\n" +
+                "   Verified: \(.Verified // false)\n"
+              ' 2>/dev/null || head -n 50 trufflehog-report.json
+
+              exit 1
+            fi
+          fi
+
+          echo "✅ TruffleHog: No secrets detected"
+
+      # ============================================================================
+      # CUSTOM DLP SCANNER - Alter Agro specific patterns
+      # ============================================================================
+      - name: Run custom DLP scanner
+        run: |
+          echo "🔍 Running custom DLP scanner..."
+          echo ""
+
+          if [ ! -f "infra/github/scan_secrets.py" ]; then
+            echo "::warning::Custom DLP scanner not found"
+            exit 0
+          fi
+
+          python infra/github/scan_secrets.py \
+            --strict \
+            --output dlp-report.json || {
+            echo "::error::❌ Custom DLP violations detected!"
+            exit 1
+          }
+
+          echo "✅ Custom DLP: No violations"
+
+      # ============================================================================
+      # FORBIDDEN PATTERNS - Critical patterns that should never appear
+      # ============================================================================
+      - name: Scan for critical forbidden patterns
+        run: |
+          echo "🔍 Scanning for critical forbidden patterns..."
+          echo ""
+
+          # Critical patterns (real secrets, not examples)
+          CRITICAL_PATTERNS=(
+            'AKIA[0-9A-Z]{16}[^Ee]'  # Real AWS keys (not examples)
+            '-----BEGIN.*PRIVATE KEY-----'  # Private keys
+            'ghp_[0-9a-zA-Z]{36}'  # GitHub personal access tokens
+            'gho_[0-9a-zA-Z]{36}'  # GitHub OAuth tokens
+          )
+
+          VIOLATIONS=0
+          for pattern in "${CRITICAL_PATTERNS[@]}"; do
+            if git grep -i -n -E "$pattern" -- . \
+                --exclude="*.md" \
+                --exclude=".github/workflows/leak-detection-monitoring.yml" \
+                2>/dev/null; then
+              echo "::error::Critical pattern detected: $pattern"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done
+
+          if [ $VIOLATIONS -gt 0 ]; then
+            echo "::error::❌ $VIOLATIONS critical pattern(s) detected!"
+            echo ""
+            echo "💡 Immediate action required:"
+            echo "   1. Remove the secrets from code immediately"
+            echo "   2. Rotate all exposed credentials"
+            echo "   3. Review git history for exposure"
+            echo "   4. Consider using git filter-branch to remove from history"
+            exit 1
+          fi
+
+          echo "✅ No critical patterns detected"
+
+      # ============================================================================
+      # BINARY & MODEL FILE DETECTION
+      # ============================================================================
+      - name: Detect unauthorized binaries and model files
+        run: |
+          echo "🔍 Checking for unauthorized binaries and model files..."
+          echo ""
+
+          # Forbidden extensions
+          FORBIDDEN_EXTS='(\.bin$|\.safetensors$|\.ckpt$|\.pth$|\.pkl$|\.h5$|\.pb$|\.onnx$|\.so$|\.dll$|\.dylib$|\.exe$)'
+
+          VIOLATIONS=$(git ls-files | egrep -i "$FORBIDDEN_EXTS" || true)
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::❌ Unauthorized binary/model files detected:"
+            echo "$VIOLATIONS"
+            echo ""
+            echo "💡 Action required:"
+            echo "   These files are P3-Trade Secrets or security risks"
+            echo "   They must NOT be in the public spec repository"
+            exit 1
+          fi
+
+          echo "✅ No unauthorized binaries detected"
+
+      # ============================================================================
+      # MONITORING SUMMARY & ALERTS
+      # ============================================================================
+      - name: Generate monitoring summary
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "LEAK DETECTION MONITORING SUMMARY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Scan completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+
+          # Check if any reports exist
+          REPORTS_FOUND=0
+          [ -f gitleaks-report.json ] && REPORTS_FOUND=1 && echo "📄 GitLeaks report: gitleaks-report.json"
+          [ -f trufflehog-report.json ] && REPORTS_FOUND=1 && echo "📄 TruffleHog report: trufflehog-report.json"
+          [ -f dlp-report.json ] && REPORTS_FOUND=1 && echo "📄 DLP report: dlp-report.json"
+
+          if [ $REPORTS_FOUND -eq 0 ]; then
+            echo "✅ All scans passed - no violations detected"
+          else
+            echo "⚠️  Reports generated - review artifacts"
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ============================================================================
+      # UPLOAD ARTIFACTS
+      # ============================================================================
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leak-monitoring-reports-${{ github.run_number }}
+          path: |
+            gitleaks-report.json
+            trufflehog-report.json
+            dlp-report.json
+          retention-days: 90
+          if-no-files-found: ignore
+
+      # ============================================================================
+      # NOTIFICATION (only on failure)
+      # ============================================================================
+      - name: Notify on leak detection
+        if: failure()
+        run: |
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "::error::⚠️  LEAK DETECTION ALERT"
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "::error::"
+          echo "::error::Potential secrets or sensitive data detected in repository!"
+          echo "::error::"
+          echo "::error::📋 Immediate Actions Required:"
+          echo "::error::   1. Review the scan reports in workflow artifacts"
+          echo "::error::   2. Remove any actual secrets from code"
+          echo "::error::   3. Rotate exposed credentials immediately"
+          echo "::error::   4. Review git history for exposure timeline"
+          echo "::error::   5. Update .gitleaks.toml allowlist if false positive"
+          echo "::error::"
+          echo "::error::📞 Security Team Contact:"
+          echo "::error::   security@alteragro.com.br"
+          echo "::error::"
+          echo "::error::━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
