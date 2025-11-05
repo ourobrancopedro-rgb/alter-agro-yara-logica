@@ -5,7 +5,7 @@ from pathlib import Path
 ALLOWED_PREFIXES = (
     ".gitignore","README.md","lsa/spec/","rag/spec/","docs/","legal/","infra/github/",".github/",
 )
-EXCLUDED = {"infra/github/verify_hashes_strict.py"}
+EXCLUDED = {".gitignore", "infra/github/verify_hashes_strict.py"}
 
 LEDGER = Path("infra/github/hash_ledger.json")
 
@@ -44,17 +44,21 @@ def main():
 
     for rel in targets:
         p=Path(rel)
-        if not p.is_file(): 
+        if not p.is_file():
             # remove if no longer exists
-            if rel in ledger: 
+            if rel in ledger:
                 del ledger[rel]
             continue
-        ledger[rel]=sha256_file(p)
+        # Self-referential hash for ledger is set to empty string
+        if rel == str(LEDGER):
+            ledger[rel] = ""
+        else:
+            ledger[rel] = sha256_file(p)
 
-    # Drop entries that no longer exist in tree
+    # Drop entries that no longer exist in tree or are excluded
     existing = set(list_all())
     for k in list(ledger.keys()):
-        if k not in existing or not is_allowed(k):
+        if k not in existing or not is_allowed(k) or k in EXCLUDED:
             del ledger[k]
 
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
