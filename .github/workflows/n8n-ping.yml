@@ -1,0 +1,218 @@
+name: n8n Ping (spec smoke)
+
+on:
+  workflow_dispatch:
+    inputs:
+      webhook_url:
+        description: 'n8n Production Webhook URL (paste at run-time)'
+        required: true
+        type: string
+      payload:
+        description: 'JSON payload (optional - uses default if empty)'
+        required: false
+        type: string
+        default: |
+          {
+            "schema_version": "PICC-1.0",
+            "ts": 1730820000,
+            "nonce": "demo-nonce-github-action",
+            "decision": {
+              "question": "Spec smoke test?",
+              "conclusion": "Yes",
+              "confidence": "HIGH",
+              "premises": [
+                {
+                  "type": "FACT",
+                  "text": "This is a spec smoke test",
+                  "evidence": [
+                    "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica",
+                    "https://example.com/spec"
+                  ]
+                }
+              ],
+              "inferences": ["Workflow is functional"],
+              "contradictions": ["None"],
+              "falsifier": "If fails in prod, revert."
+            },
+            "metadata": {
+              "actor": "github-action",
+              "context": "spec-smoke"
+            }
+          }
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    name: Send Ping to n8n Webhook
+
+    steps:
+      - name: Show Instructions
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📌 YARA Lógica PICC Notarization - n8n Ping Workflow"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⚠️  IMPORTANT: This is a spec-only smoke test workflow."
+          echo ""
+          echo "What this workflow does:"
+          echo "  • Sends a test PICC decision payload to the n8n webhook"
+          echo "  • Uses a default demo payload (or custom payload from input)"
+          echo "  • Does NOT include HMAC authentication (not for production use)"
+          echo ""
+          echo "How to use:"
+          echo "  1. Ensure n8n webhook is deployed and accessible"
+          echo "  2. Copy the webhook URL from n8n (e.g., https://n8n.example.com/webhook/...)"
+          echo "  3. Paste URL into the 'webhook_url' input when running this workflow"
+          echo "  4. Optionally customize the payload input"
+          echo "  5. Run the workflow and check the output"
+          echo ""
+          echo "For production use:"
+          echo "  • Use the JavaScript or Python clients in /examples/clients/"
+          echo "  • Always include HMAC authentication (X-Signature-256 header)"
+          echo "  • Generate unique nonces for each request"
+          echo "  • Sync system clock with NTP (timestamp validation)"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+      - name: Validate Webhook URL
+        run: |
+          WEBHOOK_URL="${{ inputs.webhook_url }}"
+
+          if [[ -z "$WEBHOOK_URL" ]]; then
+            echo "❌ Error: webhook_url is required"
+            exit 1
+          fi
+
+          if [[ ! "$WEBHOOK_URL" =~ ^https:// ]]; then
+            echo "⚠️  Warning: Webhook URL should use HTTPS"
+            echo "   URL: $WEBHOOK_URL"
+          fi
+
+          echo "✅ Webhook URL: $WEBHOOK_URL"
+
+      - name: Prepare Payload
+        id: payload
+        run: |
+          # Use custom payload if provided, otherwise use default
+          if [[ -n "${{ inputs.payload }}" ]]; then
+            PAYLOAD='${{ inputs.payload }}'
+          else
+            # Default payload with current timestamp
+            CURRENT_TS=$(date +%s)
+            PAYLOAD=$(cat <<'EOF'
+          {
+            "schema_version": "PICC-1.0",
+            "ts": TIMESTAMP_PLACEHOLDER,
+            "nonce": "demo-nonce-NONCE_PLACEHOLDER",
+            "decision": {
+              "question": "Spec smoke test?",
+              "conclusion": "Yes",
+              "confidence": "HIGH",
+              "premises": [
+                {
+                  "type": "FACT",
+                  "text": "This is a spec smoke test",
+                  "evidence": [
+                    "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica",
+                    "https://example.com/spec"
+                  ]
+                }
+              ],
+              "inferences": ["Workflow is functional"],
+              "contradictions": ["None"],
+              "falsifier": "If fails in prod, revert."
+            },
+            "metadata": {
+              "actor": "github-action",
+              "context": "spec-smoke"
+            }
+          }
+          EOF
+          )
+            # Replace placeholders
+            PAYLOAD="${PAYLOAD//TIMESTAMP_PLACEHOLDER/$CURRENT_TS}"
+            PAYLOAD="${PAYLOAD//NONCE_PLACEHOLDER/$CURRENT_TS}"
+          fi
+
+          # Validate JSON
+          if ! echo "$PAYLOAD" | jq . > /dev/null 2>&1; then
+            echo "❌ Error: Invalid JSON payload"
+            echo "$PAYLOAD"
+            exit 1
+          fi
+
+          # Save to file
+          echo "$PAYLOAD" > payload.json
+          echo "✅ Payload prepared:"
+          cat payload.json | jq .
+
+      - name: Post to n8n Webhook (No HMAC)
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📤 Sending payload to n8n webhook..."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "⚠️  NOTE: This request does NOT include HMAC authentication."
+          echo "   If n8n is configured with HMAC validation, this will fail."
+          echo "   For authenticated requests, use the client examples."
+          echo ""
+
+          HTTP_CODE=$(curl -i -X POST "${{ inputs.webhook_url }}" \
+            -H 'Content-Type: application/json' \
+            --data @payload.json \
+            -o response.txt \
+            -w '%{http_code}' \
+            -s)
+
+          echo "HTTP Status Code: $HTTP_CODE"
+          echo ""
+          echo "Response:"
+          cat response.txt
+          echo ""
+
+          # Check response
+          if [[ "$HTTP_CODE" -ge 200 && "$HTTP_CODE" -lt 300 ]]; then
+            echo ""
+            echo "✅ Request successful (HTTP $HTTP_CODE)"
+          elif [[ "$HTTP_CODE" -eq 401 ]]; then
+            echo ""
+            echo "⚠️  Request rejected with HTTP 401 (Unauthorized)"
+            echo "   This is expected if HMAC authentication is enabled."
+            echo "   Use the JavaScript or Python clients for authenticated requests."
+            exit 0  # Don't fail the workflow
+          elif [[ "$HTTP_CODE" -eq 400 ]]; then
+            echo ""
+            echo "⚠️  Request rejected with HTTP 400 (Bad Request)"
+            echo "   Check the response body for validation errors."
+            exit 0  # Don't fail the workflow
+          else
+            echo ""
+            echo "❌ Request failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 Workflow Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Webhook URL: ${{ inputs.webhook_url }}"
+          echo ""
+          echo "Next steps:"
+          echo "  • Review the response above"
+          echo "  • Check n8n execution logs for detailed processing info"
+          echo "  • If successful, verify the GitHub Issue was created"
+          echo "  • For production use, implement HMAC authentication"
+          echo ""
+          echo "Documentation:"
+          echo "  • API Contract: /spec/contracts/notarization_api_contract.md"
+          echo "  • JavaScript Client: /examples/clients/javascript/submit_decision.js"
+          echo "  • Python Client: /examples/clients/python/submit_decision.py"
+          echo "  • Runbook: /spec/ops/runbook_notarization.md"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
