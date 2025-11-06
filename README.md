@@ -246,6 +246,9 @@ This repository includes a complete, audit-focused specification for the **YARA 
 
 | Component | Location | Description |
 |:----------|:---------|:------------|
+| **Setup Guide** | [`/docs/N8N_SETUP_GUIDE.md`](docs/N8N_SETUP_GUIDE.md) | **⭐ Step-by-step n8n workflow setup instructions** |
+| **Setup Summary** | [`/docs/SETUP_SUMMARY.md`](docs/SETUP_SUMMARY.md) | Quick reference for setup and testing |
+| **Test Script** | [`/scripts/test-webhook.sh`](scripts/test-webhook.sh) | Automated webhook validation script |
 | **JSON Schema** | [`/spec/schemas/picc-1.0.schema.json`](spec/schemas/picc-1.0.schema.json) | PICC-1.0 schema with HTTPS-only evidence and FACT≥2 rule |
 | **n8n Workflow** | [`/spec/workflows/n8n_yara_picc_notarization.json`](spec/workflows/n8n_yara_picc_notarization.json) | Sanitized n8n export (validation, hash, GitHub integration) |
 | **API Contract** | [`/spec/contracts/notarization_api_contract.md`](spec/contracts/notarization_api_contract.md) | Request/response format, HMAC auth, canonical hash |
@@ -257,14 +260,28 @@ This repository includes a complete, audit-focused specification for the **YARA 
 
 ### Quick Start
 
+**📚 Detailed Setup Guide:** See [`docs/N8N_SETUP_GUIDE.md`](docs/N8N_SETUP_GUIDE.md) for complete step-by-step instructions.
+
 1. **Import n8n workflow:**
    ```bash
    # Import /spec/workflows/n8n_yara_picc_notarization.json into n8n
-   # Configure credentials: GitHub OAuth2, Redis connection
+   # Configure credentials: GitHub OAuth2
    # Set environment: HMAC_SECRET, GITHUB_OWNER, GITHUB_REPO
+   # See docs/N8N_SETUP_GUIDE.md for detailed instructions
    ```
 
-2. **Test with client:**
+2. **Test with automated script:**
+   ```bash
+   # Generate HMAC secret
+   openssl rand -hex 32
+
+   # Test webhook
+   ./scripts/test-webhook.sh \
+     "https://your-n8n.com/webhook/yara/picc/notarize" \
+     "your-hmac-secret"
+   ```
+
+3. **Test with client libraries:**
    ```bash
    # JavaScript
    cd examples/clients/javascript
@@ -281,7 +298,7 @@ This repository includes a complete, audit-focused specification for the **YARA 
    python submit_decision.py
    ```
 
-3. **Manual smoke test (GitHub Actions):**
+4. **Manual smoke test (GitHub Actions):**
    - Navigate to Actions → "n8n Ping (spec smoke)"
    - Run workflow manually
    - Paste n8n webhook URL at runtime
