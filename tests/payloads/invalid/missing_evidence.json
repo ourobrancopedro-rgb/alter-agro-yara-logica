@@ -1,0 +1,22 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1735689600,
+  "nonce": "missing-evidence-nonce",
+  "decision": {
+    "question": "Will FACT premise without evidence fail?",
+    "conclusion": "Yes, FACT requires ≥2 evidence URLs",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "This FACT premise has no evidence (should fail)",
+        "evidence": []
+      }
+    ],
+    "falsifier": "If this payload is accepted, FACT validation is broken"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-missing-evidence"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1735689600,
+  "nonce": "complete-test-nonce-002-with-max-length",
+  "decision": {
+    "question": "Should we implement comprehensive PICC validation with all optional fields?",
+    "conclusion": "Yes, comprehensive validation ensures data integrity and audit trail completeness",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "Multiple HTTPS evidence URLs are required for FACT premises per PICC-1.0 schema",
+        "evidence": [
+          "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica/blob/main/spec/schemas/picc-1.0.schema.json",
+          "https://example.com/evidence/schema-requirement",
+          "https://example.com/evidence/validation-rules"
+        ]
+      },
+      {
+        "type": "ASSUMPTION",
+        "text": "Clients will properly implement HMAC authentication using SHA-256"
+      },
+      {
+        "type": "EXPERT_OPINION",
+        "text": "Security experts recommend canonical JSON hashing for idempotency",
+        "evidence": [
+          "https://example.com/expert/canonical-json-best-practices"
+        ]
+      }
+    ],
+    "inferences": [
+      "If HMAC validation passes, the request is authenticated",
+      "If canonical hash matches existing issue, idempotency is guaranteed",
+      "If timestamp is within 5-minute window, replay attacks are mitigated"
+    ],
+    "contradictions": [
+      "Some evidence suggests simpler validation might suffice for low-risk contexts",
+      "Alternative approaches using JWT authentication could reduce complexity"
+    ],
+    "falsifier": "If a client successfully submits a payload without HMAC signature, or if duplicate issues are created for identical payloads, this decision is falsified"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-complete-with-all-fields"
+  }
+}

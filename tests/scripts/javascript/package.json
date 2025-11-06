@@ -1,0 +1,30 @@
+{
+  "name": "picc-notarization-tests",
+  "version": "1.0.0",
+  "description": "JavaScript test suite for YARA PICC Notarization n8n workflow",
+  "main": "test_picc_notarization.test.js",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:verbose": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose"
+  },
+  "keywords": [
+    "picc",
+    "yara",
+    "notarization",
+    "n8n",
+    "testing"
+  ],
+  "author": "Alter Agro DevOps",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/*.test.js"
+    ],
+    "testTimeout": 30000
+  }
+}

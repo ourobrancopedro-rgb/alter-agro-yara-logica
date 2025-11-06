@@ -1,0 +1,680 @@
+{
+  "info": {
+    "name": "YARA PICC Notarization",
+    "description": "Test collection for YARA Lógica PICC Notarization n8n workflow\n\n## Setup\n\n1. Create an environment with these variables:\n   - `n8n_webhook_url`: Your n8n webhook URL\n   - `hmac_secret`: Your HMAC secret\n\n2. The collection automatically generates HMAC signatures in pre-request scripts\n\n## Test Coverage\n\n- ✅ Valid payloads (minimal, complete, high confidence)\n- ❌ Invalid payloads (bad schema, missing evidence, etc.)\n- 🔄 Idempotency test\n- 🔐 HMAC authentication test",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "timestamp",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "hmac_signature",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Valid Payloads",
+      "item": [
+        {
+          "name": "Minimal Valid Payload",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate current timestamp",
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "pm.collectionVariables.set('timestamp', timestamp);",
+                  "",
+                  "// Prepare payload with current timestamp",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'minimal-test-nonce-001',",
+                  "  decision: {",
+                  "    question: 'Is this a minimal valid PICC decision?',",
+                  "    conclusion: 'Yes, this is minimal but valid',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      {",
+                  "        type: 'FACT',",
+                  "        text: 'Minimal FACT premise with exactly 2 evidence URLs',",
+                  "        evidence: [",
+                  "          'https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica',",
+                  "          'https://example.com/evidence/minimal'",
+                  "        ]",
+                  "      }",
+                  "    ],",
+                  "    falsifier: 'If validation fails, this test should fail'",
+                  "  },",
+                  "  metadata: {",
+                  "    actor: 'test-postman',",
+                  "    context: 'test-minimal'",
+                  "  }",
+                  "};",
+                  "",
+                  "// Compute HMAC-SHA256 signature",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "",
+                  "// Set request body",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is JSON', function () {",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "",
+                  "pm.test('Response has ok=true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.ok).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response has issue_url', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.issue_url).to.exist;",
+                  "});",
+                  "",
+                  "pm.test('Response has hash', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.hash).to.exist;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            },
+            "description": "Tests a minimal valid PICC decision payload with required fields only"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Payload (All Fields)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "pm.collectionVariables.set('timestamp', timestamp);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'complete-test-nonce-002-with-max-length',",
+                  "  decision: {",
+                  "    question: 'Should we implement comprehensive PICC validation with all optional fields?',",
+                  "    conclusion: 'Yes, comprehensive validation ensures data integrity and audit trail completeness',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      {",
+                  "        type: 'FACT',",
+                  "        text: 'Multiple HTTPS evidence URLs are required for FACT premises per PICC-1.0 schema',",
+                  "        evidence: [",
+                  "          'https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica/blob/main/spec/schemas/picc-1.0.schema.json',",
+                  "          'https://example.com/evidence/schema-requirement',",
+                  "          'https://example.com/evidence/validation-rules'",
+                  "        ]",
+                  "      },",
+                  "      {",
+                  "        type: 'ASSUMPTION',",
+                  "        text: 'Clients will properly implement HMAC authentication using SHA-256'",
+                  "      },",
+                  "      {",
+                  "        type: 'EXPERT_OPINION',",
+                  "        text: 'Security experts recommend canonical JSON hashing for idempotency',",
+                  "        evidence: ['https://example.com/expert/canonical-json-best-practices']",
+                  "      }",
+                  "    ],",
+                  "    inferences: [",
+                  "      'If HMAC validation passes, the request is authenticated',",
+                  "      'If canonical hash matches existing issue, idempotency is guaranteed',",
+                  "      'If timestamp is within 5-minute window, replay attacks are mitigated'",
+                  "    ],",
+                  "    contradictions: [",
+                  "      'Some evidence suggests simpler validation might suffice for low-risk contexts',",
+                  "      'Alternative approaches using JWT authentication could reduce complexity'",
+                  "    ],",
+                  "    falsifier: 'If a client successfully submits a payload without HMAC signature, or if duplicate issues are created for identical payloads, this decision is falsified'",
+                  "  },",
+                  "  metadata: {",
+                  "    actor: 'test-postman',",
+                  "    context: 'test-complete-with-all-fields'",
+                  "  }",
+                  "};",
+                  "",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has ok=true', () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            },
+            "description": "Tests a complete PICC decision with all optional fields (inferences, contradictions)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Test cases with valid PICC payloads that should be accepted"
+    },
+    {
+      "name": "Invalid Payloads",
+      "item": [
+        {
+          "name": "Bad HMAC Signature",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'bad-hmac-test-nonce',",
+                  "  decision: {",
+                  "    question: 'Will bad HMAC fail?',",
+                  "    conclusion: 'Yes',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      {",
+                  "        type: 'FACT',",
+                  "        text: 'Test',",
+                  "        evidence: ['https://example.com/1', 'https://example.com/2']",
+                  "      }",
+                  "    ],",
+                  "    falsifier: 'Test falsifier'",
+                  "  }",
+                  "};",
+                  "",
+                  "// Use WRONG signature",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=0000000000000000000000000000000000000000000000000000000000000000');",
+                  "pm.request.body.raw = JSON.stringify(payload);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Response has ok=false', () => pm.expect(pm.response.json().ok).to.eql(false));",
+                  "pm.test('Error code is BAD_SIG', () => pm.expect(pm.response.json().code).to.eql('BAD_SIG'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            },
+            "description": "Tests that invalid HMAC signature is rejected"
+          },
+          "response": []
+        },
+        {
+          "name": "Bad Schema Version",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-2.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'bad-schema-nonce',",
+                  "  decision: {",
+                  "    question: 'Will bad schema version fail?',",
+                  "    conclusion: 'Yes',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      { type: 'FACT', text: 'Test', evidence: ['https://example.com/1', 'https://example.com/2'] }",
+                  "    ],",
+                  "    falsifier: 'Test'",
+                  "  }",
+                  "};",
+                  "",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error code is SCHEMA_VERSION', () => pm.expect(pm.response.json().code).to.eql('SCHEMA_VERSION'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Evidence (FACT)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'missing-evidence-nonce',",
+                  "  decision: {",
+                  "    question: 'Will FACT without evidence fail?',",
+                  "    conclusion: 'Yes',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      { type: 'FACT', text: 'Missing evidence', evidence: [] }",
+                  "    ],",
+                  "    falsifier: 'Test'",
+                  "  }",
+                  "};",
+                  "",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error code is FACT_EVIDENCE', () => pm.expect(pm.response.json().code).to.eql('FACT_EVIDENCE'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Non-HTTPS Evidence",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: 'non-https-nonce',",
+                  "  decision: {",
+                  "    question: 'Will HTTP evidence fail?',",
+                  "    conclusion: 'Yes',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      { type: 'FACT', text: 'HTTP evidence', evidence: ['http://insecure.com/1', 'http://insecure.com/2'] }",
+                  "    ],",
+                  "    falsifier: 'Test'",
+                  "  }",
+                  "};",
+                  "",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error code is EVIDENCE_HTTPS', () => pm.expect(pm.response.json().code).to.eql('EVIDENCE_HTTPS'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Test cases with invalid payloads that should be rejected"
+    },
+    {
+      "name": "Idempotency",
+      "item": [
+        {
+          "name": "1. Submit New Decision",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const timestamp = Math.floor(Date.now() / 1000);",
+                  "const uniqueNonce = 'idempotency-test-' + timestamp;",
+                  "",
+                  "// Save nonce and timestamp for second request",
+                  "pm.environment.set('idempotency_nonce', uniqueNonce);",
+                  "pm.environment.set('idempotency_timestamp', timestamp);",
+                  "",
+                  "const payload = {",
+                  "  schema_version: 'PICC-1.0',",
+                  "  ts: timestamp,",
+                  "  nonce: uniqueNonce,",
+                  "  decision: {",
+                  "    question: 'Idempotency test: Will duplicate return same issue?',",
+                  "    conclusion: 'Yes',",
+                  "    confidence: 'HIGH',",
+                  "    premises: [",
+                  "      {",
+                  "        type: 'FACT',",
+                  "        text: 'Canonical hash ensures idempotency',",
+                  "        evidence: ['https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica', 'https://example.com/idempotency']",
+                  "      }",
+                  "    ],",
+                  "    falsifier: 'If duplicates created, test fails'",
+                  "  },",
+                  "  metadata: { actor: 'test-postman', context: 'test-idempotency' }",
+                  "};",
+                  "",
+                  "const payloadStr = JSON.stringify(payload);",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;",
+                  "",
+                  "// Save payload for second request",
+                  "pm.environment.set('idempotency_payload', payloadStr);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('First submission successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.ok).to.eql(true);",
+                  "    ",
+                  "    // Save issue number and URL for comparison",
+                  "    pm.environment.set('idempotency_issue_number', json.issue_number);",
+                  "    pm.environment.set('idempotency_issue_url', json.issue_url);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            },
+            "description": "First submission - should create new issue"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Submit Duplicate Decision",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Use same payload as first request",
+                  "const payloadStr = pm.environment.get('idempotency_payload');",
+                  "const hmacSecret = pm.environment.get('hmac_secret');",
+                  "const signature = CryptoJS.HmacSHA256(payloadStr, hmacSecret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('hmac_signature', 'sha256=' + signature);",
+                  "pm.request.body.raw = payloadStr;"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Second submission successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.ok).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response marked as idempotent', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.idempotent).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Same issue number returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    const firstIssueNumber = pm.environment.get('idempotency_issue_number');",
+                  "    pm.expect(json.issue_number).to.eql(firstIssueNumber);",
+                  "});",
+                  "",
+                  "pm.test('Same issue URL returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    const firstIssueUrl = pm.environment.get('idempotency_issue_url');",
+                  "    pm.expect(json.issue_url).to.eql(firstIssueUrl);",
+                  "});",
+                  "",
+                  "pm.test('No new issue created', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.created).to.not.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Signature-256",
+                "value": "{{hmac_signature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{n8n_webhook_url}}",
+              "host": ["{{n8n_webhook_url}}"]
+            },
+            "description": "Second submission (duplicate) - should return existing issue"
+          },
+          "response": []
+        }
+      ],
+      "description": "Tests that duplicate submissions return the same issue (idempotency)"
+    }
+  ]
+}

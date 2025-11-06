@@ -1,0 +1,25 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1609459200,
+  "nonce": "expired-timestamp-nonce",
+  "decision": {
+    "question": "Will expired timestamp fail validation?",
+    "conclusion": "Yes, timestamp must be within 5-minute window",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "This timestamp is from 2021-01-01 (expired)",
+        "evidence": [
+          "https://example.com/security/timestamp-validation",
+          "https://example.com/replay-attack-prevention"
+        ]
+      }
+    ],
+    "falsifier": "If this payload is accepted, timestamp validation is broken"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-expired-timestamp"
+  }
+}
