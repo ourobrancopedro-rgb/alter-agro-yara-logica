@@ -166,7 +166,7 @@ This repository implements **multi-layer security**:
 
 **Found a vulnerability or leak?**
 
-📧 Email: [security@alteragro.com.br](mailto:security@alteragro.com.br)
+📧 Email: [contatoalteragro@gmail.com](mailto:contatoalteragro@gmail.com)
 📖 Policy: [.github/SECURITY.md](.github/SECURITY.md)
 ⏱️ Response: 24 hours acknowledgment, 90-day coordinated disclosure
 
