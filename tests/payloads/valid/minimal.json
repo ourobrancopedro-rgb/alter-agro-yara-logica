@@ -1,0 +1,25 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1735689600,
+  "nonce": "minimal-test-nonce-001",
+  "decision": {
+    "question": "Is this a minimal valid PICC decision?",
+    "conclusion": "Yes, this is minimal but valid",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "Minimal FACT premise with exactly 2 evidence URLs",
+        "evidence": [
+          "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica",
+          "https://example.com/evidence/minimal"
+        ]
+      }
+    ],
+    "falsifier": "If validation fails, this test should fail"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-minimal"
+  }
+}

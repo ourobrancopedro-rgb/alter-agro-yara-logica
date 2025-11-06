@@ -1,0 +1,25 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1735689600,
+  "nonce": "non-https-evidence-nonce",
+  "decision": {
+    "question": "Will HTTP evidence URLs fail validation?",
+    "conclusion": "Yes, only HTTPS URLs are allowed",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "This FACT premise has HTTP (not HTTPS) evidence",
+        "evidence": [
+          "http://insecure.example.com/evidence1",
+          "http://insecure.example.com/evidence2"
+        ]
+      }
+    ],
+    "falsifier": "If this payload is accepted, HTTPS validation is broken"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-non-https"
+  }
+}

@@ -1,0 +1,268 @@
+name: n8n PICC Notarization - Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      webhook_url:
+        description: 'n8n Production Webhook URL'
+        required: true
+        type: string
+      test_suite:
+        description: 'Test suite to run'
+        required: false
+        type: choice
+        default: 'all'
+        options:
+          - 'all'
+          - 'valid'
+          - 'invalid'
+          - 'idempotency'
+          - 'python'
+          - 'javascript'
+  schedule:
+    # Run daily at 06:00 UTC (if webhook URL is configured as secret)
+    - cron: '0 6 * * *'
+
+env:
+  N8N_WEBHOOK_URL: ${{ inputs.webhook_url || secrets.N8N_WEBHOOK_URL }}
+  HMAC_SECRET: ${{ secrets.HMAC_SECRET }}
+
+jobs:
+  validate-config:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      webhook_configured: ${{ steps.check.outputs.webhook_configured }}
+      secret_configured: ${{ steps.check.outputs.secret_configured }}
+    steps:
+      - name: Check Configuration
+        id: check
+        run: |
+          if [[ -n "${{ env.N8N_WEBHOOK_URL }}" ]]; then
+            echo "webhook_configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "webhook_configured=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [[ -n "${{ env.HMAC_SECRET }}" ]]; then
+            echo "secret_configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "secret_configured=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if Configuration Missing
+        if: steps.check.outputs.webhook_configured == 'false' || steps.check.outputs.secret_configured == 'false'
+        run: |
+          echo "❌ Error: Required configuration missing"
+          echo ""
+          echo "Please configure:"
+          echo "  • N8N_WEBHOOK_URL: ${{ steps.check.outputs.webhook_configured }}"
+          echo "  • HMAC_SECRET: ${{ steps.check.outputs.secret_configured }}"
+          echo ""
+          echo "Set these as repository secrets or provide as workflow inputs"
+          exit 1
+
+  test-curl-valid:
+    name: cURL Tests - Valid Payloads
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: inputs.test_suite == 'all' || inputs.test_suite == 'valid'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Valid Payload Tests
+        run: |
+          chmod +x tests/scripts/curl/test_valid.sh
+          tests/scripts/curl/test_valid.sh
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: curl-valid-results
+          path: |
+            response.txt
+            payload.json
+
+  test-curl-invalid:
+    name: cURL Tests - Invalid Payloads
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: inputs.test_suite == 'all' || inputs.test_suite == 'invalid'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Invalid Payload Tests
+        run: |
+          chmod +x tests/scripts/curl/test_invalid.sh
+          tests/scripts/curl/test_invalid.sh
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: curl-invalid-results
+          path: response.txt
+
+  test-curl-idempotency:
+    name: cURL Tests - Idempotency
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: inputs.test_suite == 'all' || inputs.test_suite == 'idempotency'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Idempotency Test
+        run: |
+          chmod +x tests/scripts/curl/test_idempotency.sh
+          tests/scripts/curl/test_idempotency.sh
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: curl-idempotency-results
+          path: |
+            response1.txt
+            response2.txt
+
+  test-python:
+    name: Python Tests (pytest)
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: inputs.test_suite == 'all' || inputs.test_suite == 'python'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r tests/scripts/python/requirements.txt
+
+      - name: Run pytest
+        run: |
+          cd tests/scripts/python
+          pytest test_picc_notarization.py -v --tb=short --junit-xml=pytest-report.xml
+
+      - name: Upload pytest Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: tests/scripts/python/pytest-report.xml
+
+      - name: Publish Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: tests/scripts/python/pytest-report.xml
+          check_name: Python Test Results
+
+  test-javascript:
+    name: JavaScript Tests (Jest)
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: inputs.test_suite == 'all' || inputs.test_suite == 'javascript'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: tests/scripts/javascript/package.json
+
+      - name: Install Dependencies
+        run: |
+          cd tests/scripts/javascript
+          npm ci
+
+      - name: Run Jest Tests
+        run: |
+          cd tests/scripts/javascript
+          npm test -- --ci --reporters=default --reporters=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_DIR: ./
+
+      - name: Upload Jest Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-results
+          path: tests/scripts/javascript/junit.xml
+
+      - name: Publish Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: tests/scripts/javascript/junit.xml
+          check_name: JavaScript Test Results
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test-curl-valid, test-curl-invalid, test-curl-idempotency, test-python, test-javascript]
+    if: always()
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate Summary
+        run: |
+          echo "# 🧪 n8n PICC Notarization - Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Webhook URL:** \`${{ env.N8N_WEBHOOK_URL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| cURL - Valid Payloads | ${{ needs.test-curl-valid.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| cURL - Invalid Payloads | ${{ needs.test-curl-invalid.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| cURL - Idempotency | ${{ needs.test-curl-idempotency.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python (pytest) | ${{ needs.test-python.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| JavaScript (Jest) | ${{ needs.test-javascript.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [[ "${{ needs.test-curl-valid.result }}" == "success" ]] && \
+             [[ "${{ needs.test-curl-invalid.result }}" == "success" ]] && \
+             [[ "${{ needs.test-curl-idempotency.result }}" == "success" ]] && \
+             [[ "${{ needs.test-python.result }}" == "success" ]] && \
+             [[ "${{ needs.test-javascript.result }}" == "success" ]]; then
+            echo "## ✅ All Tests Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Some Tests Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Review test artifacts for detailed results" >> $GITHUB_STEP_SUMMARY
+          echo "- Check n8n execution logs at your n8n instance" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify GitHub Issues were created correctly" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check Overall Status
+        run: |
+          if [[ "${{ needs.test-curl-valid.result }}" == "success" ]] && \
+             [[ "${{ needs.test-curl-invalid.result }}" == "success" ]] && \
+             [[ "${{ needs.test-curl-idempotency.result }}" == "success" ]] && \
+             [[ "${{ needs.test-python.result }}" == "success" ]] && \
+             [[ "${{ needs.test-javascript.result }}" == "success" ]]; then
+            echo "✅ All tests passed"
+            exit 0
+          else
+            echo "❌ Some tests failed"
+            exit 1
+          fi

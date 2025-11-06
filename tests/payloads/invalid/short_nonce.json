@@ -1,0 +1,25 @@
+{
+  "schema_version": "PICC-1.0",
+  "ts": 1735689600,
+  "nonce": "short",
+  "decision": {
+    "question": "Will short nonce fail validation?",
+    "conclusion": "Yes, nonce must be 8-128 characters",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "Nonce validation requires minimum 8 characters",
+        "evidence": [
+          "https://example.com/spec/nonce-validation",
+          "https://example.com/security/nonce-requirements"
+        ]
+      }
+    ],
+    "falsifier": "If this payload is accepted, nonce validation is broken"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-short-nonce"
+  }
+}

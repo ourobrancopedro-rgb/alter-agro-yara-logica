@@ -1,0 +1,25 @@
+{
+  "schema_version": "PICC-2.0",
+  "ts": 1735689600,
+  "nonce": "bad-schema-version-nonce",
+  "decision": {
+    "question": "Will this fail validation?",
+    "conclusion": "Yes, schema version is incorrect",
+    "confidence": "HIGH",
+    "premises": [
+      {
+        "type": "FACT",
+        "text": "Invalid schema version should be rejected",
+        "evidence": [
+          "https://example.com/test1",
+          "https://example.com/test2"
+        ]
+      }
+    ],
+    "falsifier": "If this payload is accepted, validation is broken"
+  },
+  "metadata": {
+    "actor": "test-codex-agent",
+    "context": "test-invalid-schema"
+  }
+}
