@@ -1,7 +1,7 @@
 # n8n YARA PICC Notarization Workflow - Setup Guide
 
-**Version:** 1.0
-**Last Updated:** 2025-01-06
+**Version:** 1.1
+**Last Updated:** 2025-11-06
 **Audience:** DevOps, System Administrators
 
 ---
@@ -63,16 +63,18 @@ Before starting, ensure you have:
    spec/workflows/n8n_yara_picc_notarization.json
    ```
 
-5. **The workflow will import with 10 nodes:**
+5. **The workflow will import with 12 nodes:**
    - Webhook Trigger
    - Validate + Hash
    - IF Valid
    - Format → Markdown
-   - GitHub Search (Idempotency)
-   - IF Not Exists
-   - GitHub Create Issue
-   - Respond: Created
-   - Respond: Idempotent
+   - Search Existing Issue (HTTP Request)
+   - Rate Limit Guard
+   - Issue Exists?
+   - Create GitHub Issue (HTTP Request with retry)
+   - Return Created
+   - Return Existing
+   - Respond – Success
    - Respond: Error
 
 ---
@@ -99,40 +101,36 @@ Before starting, ensure you have:
 
 ## Step 4: Configure GitHub Credentials
 
-### For OAuth2:
+The workflow uses **HTTP Request nodes** for GitHub API calls, providing better control over retries and rate limiting.
 
-1. **Click on "GitHub Search (Idempotency)" node**
+### Using Personal Access Token (Recommended):
 
-2. **In the Credentials section, click "Create New"**
-
-3. **Select "GitHub OAuth2 API"**
-
-4. **Fill in the OAuth2 credentials:**
-   - **Client ID:** (from Step 1)
-   - **Client Secret:** (from Step 1)
-
-5. **Click "Connect my account"**
-
-6. **Authorize the GitHub OAuth App**
-
-7. **Test the connection** - should show "Connected"
-
-8. **Repeat for "GitHub Create Issue" node** (select the same credential)
-
-### For Personal Access Token:
-
-1. **Click on "GitHub Search (Idempotency)" node**
+1. **Click on "Search Existing Issue" node**
 
 2. **In the Credentials section, click "Create New"**
 
-3. **Select "GitHub API" (not OAuth2)**
+3. **Select "GitHub API"**
 
 4. **Fill in:**
    - **Access Token:** (from Step 1)
 
 5. **Test the connection**
 
-6. **Repeat for "GitHub Create Issue" node**
+6. **Repeat for "Create GitHub Issue" node** (select the same credential)
+
+### For OAuth2 (Alternative):
+
+If your n8n instance already has GitHub OAuth2 configured:
+
+1. **Click on "Search Existing Issue" node**
+
+2. **Update credential type to OAuth2 if needed**
+
+3. **Select your existing OAuth2 credential**
+
+4. **Repeat for "Create GitHub Issue" node**
+
+**Note:** Personal Access Token is simpler and provides the same functionality for this workflow.
 
 ---
 
@@ -265,15 +263,25 @@ curl -X POST "$WEBHOOK_URL" \
   -d "$PAYLOAD"
 ```
 
-**Expected Response:**
+**Expected Response (New Issue):**
 ```json
 {
   "ok": true,
-  "code": "CREATED",
-  "msg": "Decision notarized",
-  "issue_url": "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica/issues/42",
+  "created": true,
   "issue_number": 42,
+  "issue_url": "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica/issues/42",
   "hash": "e7f4a2b9c8d1..."
+}
+```
+
+**Expected Response (Existing Issue - Idempotent):**
+```json
+{
+  "ok": true,
+  "idempotent": true,
+  "issue_number": 42,
+  "issue_url": "https://github.com/ourobrancopedro-rgb/alter-agro-yara-logica/issues/42",
+  "message": "Existing issue returned (idempotency)"
 }
 ```
 
@@ -419,6 +427,57 @@ See full runbook: `spec/ops/runbook_notarization.md`
 
 ---
 
+## Idempotency Guarantees
+
+The workflow implements **search-before-create idempotency** to prevent duplicate issue creation on retries:
+
+### How It Works:
+
+1. **Canonical Hash Generation:**
+   - The workflow computes a stable SHA-256 hash of the request payload
+   - Uses sorted keys to ensure consistent hashing regardless of JSON field order
+   - Creates a unique label: `hash:{first16chars}`
+
+2. **Search Before Create:**
+   - Before creating an issue, searches GitHub for existing issues with the same hash label
+   - Uses GitHub Search API: `is:issue label:"hash:abc123..."`
+   - Continues on API failure to handle rate limiting gracefully
+
+3. **Rate-Limit Guardrails:**
+   - Validates `total_count` from search results
+   - Defaults to 0 if search API returns rate-limit errors (403)
+   - Prevents false positives from malformed responses
+
+4. **Conditional Branching:**
+   - **If issue exists** (`total_count > 0`): Returns existing issue with `idempotent: true`
+   - **If issue doesn't exist** (`total_count = 0`): Creates new issue with hash label
+
+5. **Automatic Retries:**
+   - Issue creation uses HTTP Request with **4 retry attempts** at 2-second intervals
+   - Handles transient GitHub API failures gracefully
+
+### Testing Idempotency:
+
+```bash
+# Send the same payload twice
+curl -X POST "$WEBHOOK_URL" \
+  -H "Content-Type: application/json" \
+  -H "X-Signature-256: sha256=$SIGNATURE" \
+  -d "$PAYLOAD"
+
+# First run: Returns created: true
+# Second run: Returns idempotent: true (no new issue)
+```
+
+### Benefits:
+
+- ✅ Safe retries - clients can retry failed requests without duplicate issues
+- ✅ Network resilience - handles transient failures gracefully
+- ✅ Audit integrity - prevents duplicate decision records
+- ✅ Cost efficiency - reduces GitHub API usage on retries
+
+---
+
 ## References
 
 - **Workflow JSON:** `/spec/workflows/n8n_yara_picc_notarization.json`
@@ -438,5 +497,5 @@ See full runbook: `spec/ops/runbook_notarization.md`
 ---
 
 **Setup Guide maintained by:** Alter Agro DevOps Team
-**Last tested:** 2025-01-06
-**Next review:** 2025-04-01
+**Last tested:** 2025-11-06
+**Next review:** 2026-02-01

@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// HMAC Validation + Canonical Hash + Schema Validation\nconst crypto = require('crypto');\n\n// 1. Extract request body and signature\nconst body = $input.item.json.body;\nconst receivedSig = $input.item.json.headers['x-signature-256'] || '';\nconst hmacSecret = $env.HMAC_SECRET || '<SET_IN_N8N>';\n\n// 2. Compute expected HMAC\nconst bodyStr = JSON.stringify(body);\nconst expectedSig = 'sha256=' + crypto.createHmac('sha256', hmacSecret).update(bodyStr).digest('hex');\n\n// 3. Validate signature\nif (receivedSig !== expectedSig) {\n  return [{ json: { ok: false, code: 'BAD_SIG', msg: 'HMAC signature mismatch' } }];\n}\n\n// 4. Validate timestamp window (≤ 300s)\nconst now = Math.floor(Date.now() / 1000);\nconst ts = body.ts || 0;\nif (Math.abs(now - ts) > 300) {\n  return [{ json: { ok: false, code: 'TS_WINDOW', msg: 'Timestamp outside 5min window' } }];\n}\n\n// 5. Basic schema validation\nif (!body.schema_version || body.schema_version !== 'PICC-1.0') {\n  return [{ json: { ok: false, code: 'SCHEMA_VERSION', msg: 'Invalid or missing schema_version' } }];\n}\nif (!body.nonce || body.nonce.length < 8 || body.nonce.length > 128) {\n  return [{ json: { ok: false, code: 'NONCE_INVALID', msg: 'Nonce must be 8-128 chars' } }];\n}\nif (!body.decision || !body.decision.question || !body.decision.conclusion || !body.decision.premises || !body.decision.falsifier) {\n  return [{ json: { ok: false, code: 'DECISION_INCOMPLETE', msg: 'Decision missing required fields' } }];\n}\n\n// 6. Validate FACT ≥ 2 evidence (HTTPS-only)\nfor (const p of body.decision.premises) {\n  if (p.type === 'FACT') {\n    if (!p.evidence || !Array.isArray(p.evidence) || p.evidence.length < 2) {\n      return [{ json: { ok: false, code: 'FACT_EVIDENCE', msg: 'FACT premises require ≥2 evidence URLs' } }];\n    }\n    for (const url of p.evidence) {\n      if (!url.startsWith('https://')) {\n        return [{ json: { ok: false, code: 'EVIDENCE_HTTPS', msg: 'Evidence URLs must be HTTPS' } }];\n      }\n    }\n  }\n}\n\n// 7. Canonical JSON (sorted keys) + SHA-256 hash\nfunction canonical(obj) {\n  if (Array.isArray(obj)) return '[' + obj.map(canonical).join(',') + ']';\n  if (obj && typeof obj === 'object') {\n    const keys = Object.keys(obj).sort();\n    return '{' + keys.map(k => JSON.stringify(k) + ':' + canonical(obj[k])).join(',') + '}';\n  }\n  return JSON.stringify(obj);\n}\n\nconst canonicalStr = canonical(body);\nconst hash = crypto.createHash('sha256').update(canonicalStr).digest('hex');\nconst hashLabel = hash.substring(0, 16);\n\n// 8. Return validated payload + hash + metadata\nreturn [{\n  json: {\n    ok: true,\n    payload: body,\n    hash_full: hash,\n    hash_label: hashLabel,\n    canonical: canonicalStr,\n    metadata: {\n      actor: body.metadata?.actor || 'unknown',\n      context: body.metadata?.context || 'default',\n      ts: ts,\n      nonce: body.nonce\n    }\n  }\n}];"
+        "functionCode": "// HMAC Validation + Canonical Hash + Schema Validation\nconst crypto = require('crypto');\n\n// 1. Extract request body and signature\nconst body = $input.item.json.body;\nconst receivedSig = $input.item.json.headers['x-signature-256'] || '';\nconst hmacSecret = $env.HMAC_SECRET || '<SET_IN_N8N>';\n\n// 2. Compute expected HMAC\nconst bodyStr = JSON.stringify(body);\nconst expectedSig = 'sha256=' + crypto.createHmac('sha256', hmacSecret).update(bodyStr).digest('hex');\n\n// 3. Validate signature\nif (receivedSig !== expectedSig) {\n  return [{ json: { ok: false, code: 'BAD_SIG', msg: 'HMAC signature mismatch' } }];\n}\n\n// 4. Validate timestamp window (≤ 300s)\nconst now = Math.floor(Date.now() / 1000);\nconst ts = body.ts || 0;\nif (Math.abs(now - ts) > 300) {\n  return [{ json: { ok: false, code: 'TS_WINDOW', msg: 'Timestamp outside 5min window' } }];\n}\n\n// 5. Basic schema validation\nif (!body.schema_version || body.schema_version !== 'PICC-1.0') {\n  return [{ json: { ok: false, code: 'SCHEMA_VERSION', msg: 'Invalid or missing schema_version' } }];\n}\nif (!body.nonce || body.nonce.length < 8 || body.nonce.length > 128) {\n  return [{ json: { ok: false, code: 'NONCE_INVALID', msg: 'Nonce must be 8-128 chars' } }];\n}\nif (!body.decision || !body.decision.question || !body.decision.conclusion || !body.decision.premises || !body.decision.falsifier) {\n  return [{ json: { ok: false, code: 'DECISION_INCOMPLETE', msg: 'Decision missing required fields' } }];\n}\n\n// 6. Validate FACT ≥ 2 evidence (HTTPS-only)\nfor (const p of body.decision.premises) {\n  if (p.type === 'FACT') {\n    if (!p.evidence || !Array.isArray(p.evidence) || p.evidence.length < 2) {\n      return [{ json: { ok: false, code: 'FACT_EVIDENCE', msg: 'FACT premises require ≥2 evidence URLs' } }];\n    }\n    for (const url of p.evidence) {\n      if (!url.startsWith('https://')) {\n        return [{ json: { ok: false, code: 'EVIDENCE_HTTPS', msg: 'Evidence URLs must be HTTPS' } }];\n      }\n    }\n  }\n}\n\n// 7. Canonical JSON (sorted keys) + SHA-256 hash (for idempotency)\nfunction canonical(obj) {\n  if (Array.isArray(obj)) return '[' + obj.map(canonical).join(',') + ']';\n  if (obj && typeof obj === 'object') {\n    const keys = Object.keys(obj).sort();\n    return '{' + keys.map(k => JSON.stringify(k) + ':' + canonical(obj[k])).join(',') + '}';\n  }\n  return JSON.stringify(obj);\n}\n\nconst canonicalStr = canonical(body);\nconst hash = crypto.createHash('sha256').update(canonicalStr).digest('hex');\nconst bundle_sha256 = hash;\nconst hash_label = `hash:${hash.slice(0, 16)}`;\n\n// 8. Return validated payload + hash + metadata\nreturn [{\n  json: {\n    ok: true,\n    payload: body,\n    bundle_sha256: bundle_sha256,\n    hash_label: hash_label,\n    canonical: canonicalStr,\n    metadata: {\n      actor: body.metadata?.actor || 'unknown',\n      context: body.metadata?.context || 'default',\n      ts: ts,\n      nonce: body.nonce\n    }\n  }\n}];"
       },
       "id": "validate-hash-function",
       "name": "Validate + Hash",
@@ -44,7 +44,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Format decision as GitHub Issue Markdown\nconst p = $input.item.json.payload;\nconst meta = $input.item.json.metadata;\nconst hash = $input.item.json.hash_full;\nconst hashLabel = $input.item.json.hash_label;\n\n// Build premises section\nlet premisesMarkdown = '';\nfor (const prem of p.decision.premises) {\n  premisesMarkdown += `### ${prem.type}\\n${prem.text}\\n`;\n  if (prem.evidence && prem.evidence.length > 0) {\n    premisesMarkdown += '**Evidence:**\\n';\n    for (const url of prem.evidence) {\n      premisesMarkdown += `- ${url}\\n`;\n    }\n  }\n  premisesMarkdown += '\\n';\n}\n\n// Build inferences section\nlet inferencesMarkdown = '';\nif (p.decision.inferences && p.decision.inferences.length > 0) {\n  inferencesMarkdown = '## Inferences\\n';\n  for (const inf of p.decision.inferences) {\n    inferencesMarkdown += `- ${inf}\\n`;\n  }\n  inferencesMarkdown += '\\n';\n}\n\n// Build contradictions section\nlet contradictionsMarkdown = '';\nif (p.decision.contradictions && p.decision.contradictions.length > 0) {\n  contradictionsMarkdown = '## Contradictions\\n';\n  for (const con of p.decision.contradictions) {\n    contradictionsMarkdown += `- ${con}\\n`;\n  }\n  contradictionsMarkdown += '\\n';\n}\n\n// Compose full issue body\nconst issueTitle = `[PICC] ${p.decision.question}`;\nconst issueBody = `## Decision Record\n\n**Question:** ${p.decision.question}\n\n**Conclusion:** ${p.decision.conclusion}\n\n**Confidence:** ${p.decision.confidence}\n\n---\n\n## Premises\n\n${premisesMarkdown}\n\n${inferencesMarkdown}\n\n${contradictionsMarkdown}\n\n## Falsifier\n\n${p.decision.falsifier}\n\n---\n\n## Metadata\n\n- **Actor:** ${meta.actor}\n- **Context:** ${meta.context}\n- **Timestamp:** ${meta.ts} (${new Date(meta.ts * 1000).toISOString()})\n- **Nonce:** ${meta.nonce}\n- **Schema:** ${p.schema_version}\n\n---\n\n## Hash\n\n\\`\\`\\`\n${hash}\n\\`\\`\\`\n\n**Canonical JSON:**\n\\`\\`\\`json\n${$input.item.json.canonical}\n\\`\\`\\`\n`;\n\n// Labels\nconst labels = [\n  'yara-logica',\n  'picc',\n  `hash:${hashLabel}`,\n  `schema:${p.schema_version}`\n];\nif (meta.actor !== 'unknown') labels.push(`actor:${meta.actor}`);\nif (meta.context !== 'default') labels.push(`context:${meta.context}`);\n\nreturn [{\n  json: {\n    title: issueTitle,\n    body: issueBody,\n    labels: labels,\n    hash_label: hashLabel,\n    hash_full: hash\n  }\n}];"
+        "functionCode": "// Format decision as GitHub Issue Markdown\nconst p = $input.item.json.payload;\nconst meta = $input.item.json.metadata;\nconst hash = $input.item.json.bundle_sha256;\nconst hashLabel = $input.item.json.hash_label;\n\n// Build premises section\nlet premisesMarkdown = '';\nfor (const prem of p.decision.premises) {\n  premisesMarkdown += `### ${prem.type}\\n${prem.text}\\n`;\n  if (prem.evidence && prem.evidence.length > 0) {\n    premisesMarkdown += '**Evidence:**\\n';\n    for (const url of prem.evidence) {\n      premisesMarkdown += `- ${url}\\n`;\n    }\n  }\n  premisesMarkdown += '\\n';\n}\n\n// Build inferences section\nlet inferencesMarkdown = '';\nif (p.decision.inferences && p.decision.inferences.length > 0) {\n  inferencesMarkdown = '## Inferences\\n';\n  for (const inf of p.decision.inferences) {\n    inferencesMarkdown += `- ${inf}\\n`;\n  }\n  inferencesMarkdown += '\\n';\n}\n\n// Build contradictions section\nlet contradictionsMarkdown = '';\nif (p.decision.contradictions && p.decision.contradictions.length > 0) {\n  contradictionsMarkdown = '## Contradictions\\n';\n  for (const con of p.decision.contradictions) {\n    contradictionsMarkdown += `- ${con}\\n`;\n  }\n  contradictionsMarkdown += '\\n';\n}\n\n// Compose full issue body\nconst issueTitle = `[PICC] ${p.decision.question}`;\nconst issueBody = `## Decision Record\n\n**Question:** ${p.decision.question}\n\n**Conclusion:** ${p.decision.conclusion}\n\n**Confidence:** ${p.decision.confidence}\n\n---\n\n## Premises\n\n${premisesMarkdown}\n\n${inferencesMarkdown}\n\n${contradictionsMarkdown}\n\n## Falsifier\n\n${p.decision.falsifier}\n\n---\n\n## Metadata\n\n- **Actor:** ${meta.actor}\n- **Context:** ${meta.context}\n- **Timestamp:** ${meta.ts} (${new Date(meta.ts * 1000).toISOString()})\n- **Nonce:** ${meta.nonce}\n- **Schema:** ${p.schema_version}\n\n---\n\n## Hash\n\n\\`\\`\\`\n${hash}\n\\`\\`\\`\n\n**Canonical JSON:**\n\\`\\`\\`json\n${$input.item.json.canonical}\n\\`\\`\\`\n`;\n\n// Labels (including hash for idempotency)\nconst labels = [\n  'yara-logica',\n  'picc',\n  hashLabel,\n  `schema:${p.schema_version}`\n];\nif (meta.actor !== 'unknown') labels.push(`actor:${meta.actor}`);\nif (meta.context !== 'default') labels.push(`context:${meta.context}`);\n\nreturn [{\n  json: {\n    title: issueTitle,\n    body: issueBody,\n    labels: labels,\n    hash_label: hashLabel,\n    bundle_sha256: hash\n  }\n}];"
       },
       "id": "format-markdown",
       "name": "Format → Markdown",
@@ -54,91 +54,166 @@
     },
     {
       "parameters": {
-        "authentication": "oAuth2",
-        "resource": "issue",
-        "operation": "getAll",
-        "owner": "={{$env.GITHUB_OWNER || '<ORG>'}}",
-        "repository": "={{$env.GITHUB_REPO || '<REPO>'}}",
-        "returnAll": false,
-        "limit": 10,
-        "additionalFields": {
-          "labels": "={{$json.hash_label}}"
+        "method": "GET",
+        "url": "https://api.github.com/search/issues",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=repo:ourobrancopedro-rgb/alter-agro-yara-logica is:issue label:\"{{$node['Format → Markdown'].json.hash_label}}\""
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json"
+            }
+          }
         }
       },
-      "id": "github-search-idempotency",
-      "name": "GitHub Search (Idempotency)",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
+      "id": "search-existing-issue",
+      "name": "Search Existing Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [1050, 200],
+      "continueOnFail": true,
       "credentials": {
-        "githubOAuth2Api": {
+        "githubApi": {
           "id": "<SET_IN_N8N>",
-          "name": "GitHub OAuth2"
+          "name": "GitHub API"
         }
       }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Rate-limit guardrail for GitHub API search\nconst count = typeof $json.total_count === 'number' ? $json.total_count : 0;\nreturn [{ json: { ...$json, total_count: count } }];"
+      },
+      "id": "rate-limit-guard",
+      "name": "Rate Limit Guard",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1200, 200]
     },
     {
       "parameters": {
         "conditions": {
           "number": [
             {
-              "value1": "={{$json.length || 0}}",
-              "operation": "equal",
+              "value1": "={{$json.total_count}}",
+              "operation": "larger",
               "value2": 0
             }
           ]
         }
       },
-      "id": "if-not-exists",
-      "name": "IF Not Exists",
+      "id": "issue-exists",
+      "name": "Issue Exists?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1250, 200]
+      "position": [1350, 200]
     },
     {
       "parameters": {
-        "authentication": "oAuth2",
-        "resource": "issue",
-        "operation": "create",
-        "owner": "={{$env.GITHUB_OWNER || '<ORG>'}}",
-        "repository": "={{$env.GITHUB_REPO || '<REPO>'}}",
-        "title": "={{$node['Format → Markdown'].json.title}}",
-        "body": "={{$node['Format → Markdown'].json.body}}",
-        "labels": "={{$node['Format → Markdown'].json.labels.join(',')}}"
+        "method": "POST",
+        "url": "https://api.github.com/repos/ourobrancopedro-rgb/alter-agro-yara-logica/issues",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  title: $node['Format → Markdown'].json.title,\n  body: $node['Format → Markdown'].json.body,\n  labels: $node['Format → Markdown'].json.labels\n} }}",
+        "options": {
+          "retry": {
+            "retry": {
+              "maxRetries": 4,
+              "retryInterval": 2000
+            }
+          }
+        }
       },
-      "id": "github-create-issue",
-      "name": "GitHub Create Issue",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
-      "position": [1450, 100],
+      "id": "create-github-issue",
+      "name": "Create GitHub Issue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1550, 100],
+      "retryOnFail": true,
       "credentials": {
-        "githubOAuth2Api": {
+        "githubApi": {
           "id": "<SET_IN_N8N>",
-          "name": "GitHub OAuth2"
+          "name": "GitHub API"
         }
       }
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{{\n  ok: true,\n  code: 'CREATED',\n  msg: 'Decision notarized',\n  issue_url: $json.html_url,\n  issue_number: $json.number,\n  hash: $node['Format → Markdown'].json.hash_full\n}}}"
+        "functionCode": "// Return standardized response for created issue\nreturn [{\n  json: {\n    ok: true,\n    created: true,\n    issue_number: $json.number,\n    issue_url: $json.html_url,\n    hash: $node['Format → Markdown'].json.bundle_sha256\n  }\n}];"
       },
-      "id": "respond-created",
-      "name": "Respond: Created",
-      "type": "n8n-nodes-base.respondToWebhook",
+      "id": "return-created",
+      "name": "Return Created",
+      "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1650, 100]
+      "position": [1750, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Return standardized response for existing issue\nconst found = $json.items && $json.items[0];\nreturn [{\n  json: {\n    ok: true,\n    idempotent: true,\n    issue_number: found?.number,\n    issue_url: found?.html_url,\n    message: 'Existing issue returned (idempotency)'\n  }\n}];"
+      },
+      "id": "return-existing",
+      "name": "Return Existing",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1550, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{{\n  ok: true,\n  code: 'IDEMPOTENT',\n  msg: 'Decision already notarized',\n  issue_url: $json[0].html_url,\n  issue_number: $json[0].number,\n  hash: $node['Format → Markdown'].json.hash_full\n}}}"
+        "responseBody": "={{$json}}"
       },
-      "id": "respond-idempotent",
-      "name": "Respond: Idempotent",
+      "id": "respond-success",
+      "name": "Respond – Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1450, 300]
+      "position": [1950, 200]
     },
     {
       "parameters": {
@@ -167,19 +242,28 @@
       ]
     },
     "Format → Markdown": {
-      "main": [[{ "node": "GitHub Search (Idempotency)", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Search Existing Issue", "type": "main", "index": 0 }]]
     },
-    "GitHub Search (Idempotency)": {
-      "main": [[{ "node": "IF Not Exists", "type": "main", "index": 0 }]]
+    "Search Existing Issue": {
+      "main": [[{ "node": "Rate Limit Guard", "type": "main", "index": 0 }]]
     },
-    "IF Not Exists": {
+    "Rate Limit Guard": {
+      "main": [[{ "node": "Issue Exists?", "type": "main", "index": 0 }]]
+    },
+    "Issue Exists?": {
       "main": [
-        [{ "node": "GitHub Create Issue", "type": "main", "index": 0 }],
-        [{ "node": "Respond: Idempotent", "type": "main", "index": 0 }]
+        [{ "node": "Return Existing", "type": "main", "index": 0 }],
+        [{ "node": "Create GitHub Issue", "type": "main", "index": 0 }]
       ]
     },
-    "GitHub Create Issue": {
-      "main": [[{ "node": "Respond: Created", "type": "main", "index": 0 }]]
+    "Create GitHub Issue": {
+      "main": [[{ "node": "Return Created", "type": "main", "index": 0 }]]
+    },
+    "Return Created": {
+      "main": [[{ "node": "Respond – Success", "type": "main", "index": 0 }]]
+    },
+    "Return Existing": {
+      "main": [[{ "node": "Respond – Success", "type": "main", "index": 0 }]]
     }
   },
   "settings": {
