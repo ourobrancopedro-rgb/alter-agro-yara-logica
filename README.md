@@ -236,6 +236,43 @@ All Alter Agro information follows a **4-level classification system**:
 
 ---
 
+## 📋 LSA Decision Record System
+
+**Audit-grade decision governance with cryptographic integrity.**
+
+The **Logic Sorting Architecture (LSA)** decision record system provides immutable, traceable documentation of critical decisions using the **Premise-Inference-Contradiction-Conclusion (PICC)** methodology. All decision records are cryptographically hashed and stored as GitHub Issues for tamper-proof audit trails.
+
+### Quick Start
+
+**Create Decision Records:**
+- **Manual:** Use the [GitHub issue template](.github/ISSUE_TEMPLATE/lsa-decision-record.md)
+- **Automated:** Submit via n8n workflow (see [setup guide](lsa/workflows/SETUP.md))
+
+**Verify Records:**
+```bash
+./lsa/scripts/verify-records.sh
+```
+
+**Export Reports:**
+```bash
+./lsa/scripts/export-records.sh --format html
+```
+
+### Documentation
+- **Overview:** [lsa/README.md](lsa/README.md) — LSA methodology and architecture
+- **Workflow Setup:** [lsa/workflows/SETUP.md](lsa/workflows/SETUP.md) — n8n installation guide
+- **Audit Trail:** [lsa/docs/AUDIT-TRAIL.md](lsa/docs/AUDIT-TRAIL.md) — Cryptographic verification procedures
+- **Schema:** [lsa/schema/decision-record.schema.json](lsa/schema/decision-record.schema.json) — JSON validation rules
+
+### Key Features
+- ✅ **PICC Methodology** — Premise-Inference-Contradiction-Conclusion structure
+- ✅ **Cryptographic Hashing** — SHA-256 immutability and tamper detection
+- ✅ **Automated Workflow** — n8n integration with HMAC authentication
+- ✅ **GitHub Integration** — Issues as immutable audit storage
+- ✅ **Falsifier Validation** — Popperian criteria for decision review
+
+---
+
 ## 🔐 YARA Lógica PICC Notarization (n8n → GitHub)
 
 **Production-ready specification for the n8n → GitHub notarization workflow.**

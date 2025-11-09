@@ -1,0 +1,20 @@
+# LSA Decision Record Storage - Git Attributes
+
+# Treat all decision record JSON files as text for proper diffing
+*.json text diff=json
+
+# Normalize line endings to LF (Unix-style) for consistency
+*.json text eol=lf
+
+# Enable JSON syntax highlighting and diff in GitHub
+*.json linguist-language=JSON
+
+# Mark decision records as documentation for statistics
+*.json linguist-documentation=true
+
+# Ensure canonical formatting is preserved
+*.json -crlf
+
+# Generate useful diffs for JSON files (requires git 2.0+)
+# This makes git show structured JSON diffs instead of line-by-line
+*.json diff=json
