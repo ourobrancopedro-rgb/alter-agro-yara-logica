@@ -1,0 +1,62 @@
+# LSA Decision Record System - Ignore Patterns
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# n8n exports (may contain credentials)
+**/credentials*.json
+**/variables*.json
+
+# Secrets and sensitive data
+*secret*
+*password*
+*apikey*
+*token*
+*credentials*
+
+# Build artifacts
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-*
+
+# Backup files
+*.bak
+*.backup
+
+# Cache
+.cache/
+*.cache
+
+# OS-specific
+Thumbs.db
+Desktop.ini
+
+# Test outputs
+test-output/
+coverage/
+.nyc_output/
+
+# Draft decision records (use records/ for final versions only)
+drafts/
+*.draft.json
+
+# Personal notes (never commit)
+notes.md
+TODO.md
+SCRATCH.md

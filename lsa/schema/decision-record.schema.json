@@ -1,0 +1,296 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://yara.logica/schema/lsa-decision-record.json",
+  "title": "LSA Decision Record Schema",
+  "description": "JSON schema for validating LSA (Logic Sorting Architecture) decision records using PICC methodology",
+  "type": "object",
+  "required": ["id", "question", "premises", "conclusion", "confidence", "falsifier", "created_at", "author"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^DEC-\\d{4}-\\d{2}-\\d{2}-\\d{2}$",
+      "description": "Unique decision identifier (format: DEC-YYYY-MM-DD-NN)",
+      "examples": ["DEC-2025-11-09-01"]
+    },
+    "question": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "The decision question being addressed"
+    },
+    "premises": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Foundational facts, assumptions, or expert opinions",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "text", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^P\\d+$",
+            "description": "Premise identifier (P1, P2, etc.)",
+            "examples": ["P1", "P2", "P10"]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["FACT", "ASSUMPTION", "EXPERT_OPINION"],
+            "description": "Premise type classification"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "Premise statement text"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["VALIDATED", "PENDING", "CONTESTED", "REFUTED"],
+            "description": "Current validation status"
+          },
+          "evidence": {
+            "type": "array",
+            "description": "Supporting evidence URLs (required ≥2 for FACT type)",
+            "items": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://.*",
+              "description": "HTTPS URL to evidence source"
+            }
+          },
+          "criticality": {
+            "type": "string",
+            "enum": ["CRITICAL", "IMPORTANT", "SUPPORTING"],
+            "description": "Impact level if premise is invalidated",
+            "default": "SUPPORTING"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "type": { "const": "FACT" } }
+            },
+            "then": {
+              "required": ["evidence"],
+              "properties": {
+                "evidence": {
+                  "minItems": 2
+                }
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "inferences": {
+      "type": "array",
+      "description": "Logical deductions from premises",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^I\\d+$",
+            "description": "Inference identifier (I1, I2, etc.)",
+            "examples": ["I1", "I2"]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000,
+            "description": "Inference statement"
+          },
+          "based_on": {
+            "type": "array",
+            "description": "Premise IDs this inference derives from",
+            "items": {
+              "type": "string",
+              "pattern": "^P\\d+$"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "description": "Opposing evidence or conflicting information",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^C\\d+$",
+            "description": "Contradiction identifier (C1, C2, etc.)",
+            "examples": ["C1", "C2"]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000,
+            "description": "Contradiction statement"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "MODERATE", "MINOR"],
+            "description": "Impact severity of this contradiction",
+            "default": "MODERATE"
+          },
+          "resolution": {
+            "type": "string",
+            "description": "How this contradiction is addressed or mitigated"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "conclusion": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 2000,
+      "description": "Final decision statement"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"],
+      "description": "Confidence level in the decision"
+    },
+    "falsifier": {
+      "type": "object",
+      "required": ["metric", "threshold", "by"],
+      "description": "Popperian falsification criteria",
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "description": "Metric to track for falsification",
+          "examples": ["Auditor_NCs", "Customer_Complaints", "Error_Rate"]
+        },
+        "threshold": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Threshold value that triggers falsification",
+          "examples": [">0", ">5", ">=10%"]
+        },
+        "by": {
+          "type": "string",
+          "format": "date",
+          "description": "Evaluation deadline (YYYY-MM-DD)",
+          "examples": ["2026-01-15"]
+        },
+        "monitor": {
+          "type": "string",
+          "enum": ["AUTOMATED", "MANUAL", "PERIODIC"],
+          "description": "Monitoring method",
+          "default": "MANUAL"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 500,
+          "description": "Action to take if falsified"
+        }
+      },
+      "additionalProperties": false
+    },
+    "attachments": {
+      "type": "array",
+      "description": "Supporting documents and evidence files",
+      "items": {
+        "type": "string",
+        "description": "File path or URL to attachment"
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hash of canonical decision record"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of record creation"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 200,
+      "description": "Decision author or team name"
+    },
+    "approved_by": {
+      "type": "array",
+      "description": "List of approvers",
+      "items": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 200
+      }
+    },
+    "implementation_status": {
+      "type": "string",
+      "enum": ["PENDING", "IN_PROGRESS", "COMPLETED", "DEFERRED", "CANCELLED"],
+      "description": "Implementation status of the decision",
+      "default": "PENDING"
+    },
+    "implementation_pr": {
+      "type": "string",
+      "format": "uri",
+      "description": "GitHub pull request URL implementing this decision"
+    },
+    "revision_history": {
+      "type": "array",
+      "description": "History of revisions to this decision record",
+      "items": {
+        "type": "object",
+        "required": ["date", "change", "approved_by"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of revision"
+          },
+          "change": {
+            "type": "string",
+            "description": "Description of changes made"
+          },
+          "approved_by": {
+            "type": "string",
+            "description": "Approver of the revision"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional contextual metadata",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "Project or context this decision applies to"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Categorization tags"
+        },
+        "related_decisions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^DEC-\\d{4}-\\d{2}-\\d{2}-\\d{2}$"
+          },
+          "description": "Related decision IDs"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

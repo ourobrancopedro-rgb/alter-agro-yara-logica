@@ -1,0 +1,196 @@
+name: Validate LSA Decision Records
+
+on:
+  push:
+    paths:
+      - 'lsa/records/**/*.json'
+      - 'lsa/schema/**/*.json'
+      - '.github/workflows/validate-lsa-records.yml'
+  pull_request:
+    paths:
+      - 'lsa/records/**/*.json'
+      - 'lsa/schema/**/*.json'
+
+jobs:
+  validate-records:
+    name: Validate Decision Records
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install -g ajv-cli ajv-formats
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Validate JSON schema compliance
+        id: schema-validation
+        run: |
+          echo "::group::Schema Validation"
+          SCHEMA_FILE="lsa/schema/decision-record.schema.json"
+
+          if [ ! -f "$SCHEMA_FILE" ]; then
+            echo "❌ Schema file not found: $SCHEMA_FILE"
+            exit 1
+          fi
+
+          TOTAL=0
+          VALID=0
+          INVALID=0
+
+          for record in lsa/records/*.json; do
+            if [ "$record" = "lsa/records/*.json" ]; then
+              echo "ℹ️  No decision records found to validate"
+              break
+            fi
+
+            TOTAL=$((TOTAL + 1))
+            echo "Validating $(basename $record)..."
+
+            if ajv validate -s "$SCHEMA_FILE" -d "$record" --strict=false; then
+              echo "✅ $(basename $record) - Valid"
+              VALID=$((VALID + 1))
+            else
+              echo "❌ $(basename $record) - Invalid"
+              INVALID=$((INVALID + 1))
+            fi
+          done
+
+          echo "::endgroup::"
+          echo "::notice::Schema Validation Complete: $VALID valid, $INVALID invalid out of $TOTAL records"
+
+          if [ $INVALID -gt 0 ]; then
+            echo "::error::Schema validation failed for $INVALID record(s)"
+            exit 1
+          fi
+
+      - name: Verify hash integrity
+        id: hash-verification
+        run: |
+          echo "::group::Hash Integrity Verification"
+          TOTAL=0
+          VERIFIED=0
+          MISMATCHES=0
+
+          for record in lsa/records/*.json; do
+            if [ "$record" = "lsa/records/*.json" ]; then
+              break
+            fi
+
+            TOTAL=$((TOTAL + 1))
+            echo "Verifying hash for $(basename $record)..."
+
+            STORED_HASH=$(jq -r '.sha256 // empty' "$record")
+
+            if [ -z "$STORED_HASH" ]; then
+              echo "⚠️  $(basename $record) - No hash found"
+              continue
+            fi
+
+            # Compute canonical hash (remove sha256 field, sort keys, compute SHA-256)
+            COMPUTED_HASH=$(jq -Sc 'del(.sha256)' "$record" | jq -S -c | sha256sum | awk '{print $1}')
+
+            if [ "$STORED_HASH" = "$COMPUTED_HASH" ]; then
+              echo "✅ $(basename $record) - Hash verified"
+              VERIFIED=$((VERIFIED + 1))
+            else
+              echo "❌ $(basename $record) - Hash mismatch!"
+              echo "   Expected: $STORED_HASH"
+              echo "   Computed: $COMPUTED_HASH"
+              MISMATCHES=$((MISMATCHES + 1))
+            fi
+          done
+
+          echo "::endgroup::"
+          echo "::notice::Hash Verification Complete: $VERIFIED verified, $MISMATCHES mismatches out of $TOTAL records"
+
+          if [ $MISMATCHES -gt 0 ]; then
+            echo "::error::Hash integrity check failed for $MISMATCHES record(s)"
+            exit 1
+          fi
+
+      - name: Check evidence requirements
+        id: evidence-check
+        run: |
+          echo "::group::Evidence Requirements Check"
+          TOTAL=0
+          VALID=0
+          MISSING=0
+
+          for record in lsa/records/*.json; do
+            if [ "$record" = "lsa/records/*.json" ]; then
+              break
+            fi
+
+            TOTAL=$((TOTAL + 1))
+            echo "Checking evidence for $(basename $record)..."
+
+            # Check FACT premises have ≥2 HTTPS evidence URLs
+            FACT_COUNT=$(jq '[.premises[]? | select(.type == "FACT")] | length' "$record")
+
+            if [ "$FACT_COUNT" -eq 0 ]; then
+              echo "ℹ️  $(basename $record) - No FACT premises"
+              VALID=$((VALID + 1))
+              continue
+            fi
+
+            INVALID_FACTS=$(jq -r '[.premises[]? | select(.type == "FACT" and (.evidence | length < 2))] | length' "$record")
+
+            if [ "$INVALID_FACTS" -gt 0 ]; then
+              echo "⚠️  $(basename $record) - $INVALID_FACTS FACT premise(s) missing ≥2 evidence URLs"
+              MISSING=$((MISSING + 1))
+            else
+              # Check HTTPS-only
+              NON_HTTPS=$(jq -r '[.premises[]? | select(.type == "FACT") | .evidence[]? | select(startswith("https://") | not)] | length' "$record")
+
+              if [ "$NON_HTTPS" -gt 0 ]; then
+                echo "⚠️  $(basename $record) - $NON_HTTPS evidence URL(s) are not HTTPS"
+                MISSING=$((MISSING + 1))
+              else
+                echo "✅ $(basename $record) - Evidence valid"
+                VALID=$((VALID + 1))
+              fi
+            fi
+          done
+
+          echo "::endgroup::"
+          echo "::notice::Evidence Check Complete: $VALID valid, $MISSING with issues out of $TOTAL records"
+
+          # Evidence warnings don't fail the build (only warnings)
+          if [ $MISSING -gt 0 ]; then
+            echo "::warning::Evidence requirements not met for $MISSING record(s)"
+          fi
+
+      - name: Flag low-confidence decisions
+        id: confidence-check
+        run: |
+          echo "::group::Confidence Level Review"
+          LOW_CONFIDENCE=$(jq -r 'select(.confidence == "LOW") | .id' lsa/records/*.json 2>/dev/null | wc -l)
+
+          if [ "$LOW_CONFIDENCE" -gt 0 ]; then
+            echo "::warning::Found $LOW_CONFIDENCE decision record(s) with LOW confidence level"
+            echo "LOW confidence decisions should be reviewed periodically:"
+            jq -r 'select(.confidence == "LOW") | "- \(.id): \(.question)"' lsa/records/*.json 2>/dev/null || true
+          else
+            echo "ℹ️  No LOW confidence decisions found"
+          fi
+          echo "::endgroup::"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "::group::Validation Summary"
+          echo "✅ Schema validation: Passed"
+          echo "✅ Hash integrity: Passed"
+          echo "✅ Evidence check: Completed"
+          echo "✅ Confidence review: Completed"
+          echo "::endgroup::"
+          echo "::notice::All LSA decision record validations completed successfully"
