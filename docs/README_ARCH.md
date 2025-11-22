@@ -37,3 +37,20 @@ This document summarizes the public specification architecture for YARA Lógica.
 5. Branch protection requires signed commits and reviewer approval before merge.
 
 This layered approach delivers public transparency while protecting Alter Agro's runtime intellectual property.
+
+## AI Phylogeny: Position of YARA Lógica
+
+**Figure X — YARA Lógica as the First Third-Wave Logocentric AI System**
+
+This figure presents the evolutionary tree of artificial intelligence:
+
+1. **First Wave** – Symbolic / GOFAI: rule-based expert systems with no learning capability.  
+2. **Second Wave** – Neural / Statistical AI: deep-learning models and LLMs with high fluency but low logical guarantees.  
+3. **Third Wave** – Logocentric / Geometric AI: systems that enforce structured reasoning, geometric constraints, falsifiability, and cryptographic auditability.
+
+**YARA Lógica** sits in the **Third Wave**, defined as a  
+**Logocentric Geometric-Modal Reasoning System (LGMRS)**  
+and the **first compliance-native, audit-grade reasoning architecture**, integrating LSA, multi-layer verification, RAG hybridization, and GitHub-anchored audit trails.
+
+*See Figure X (SVG):*  
+`docs/YARA_AI_PHYLOGENY.svg`

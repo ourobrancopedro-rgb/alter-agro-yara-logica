@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+  <style>
+    .title { font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; }
+    .label { font-family: Arial, sans-serif; font-size: 12px; }
+    .box   { fill: #f7f7f7; stroke: #333333; stroke-width: 1; }
+    .yara  { fill: #e6ffe6; stroke: #006600; stroke-width: 1.5; }
+    .arrow { stroke: #555555; stroke-width: 1.5; marker-end: url(#arrowhead); }
+  </style>
+
+  <!-- Arrowhead definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3"
+            orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 8 3, 0 6" fill="#555555" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" class="title">
+    AI Phylogeny – Position of YARA Lógica
+  </text>
+
+  <!-- Wave labels on top -->
+  <text x="150" y="60" text-anchor="middle" class="label">First Wave</text>
+  <text x="450" y="60" text-anchor="middle" class="label">Second Wave</text>
+  <text x="750" y="60" text-anchor="middle" class="label">Third Wave</text>
+
+  <!-- First Wave box: Symbolic / GOFAI -->
+  <rect x="60" y="80" width="180" height="120" class="box" />
+  <text x="150" y="100" text-anchor="middle" class="label">
+    Symbolic AI / GOFAI
+  </text>
+  <text x="150" y="120" text-anchor="middle" class="label">
+    (Rule-based, logic engines)
+  </text>
+  <text x="150" y="145" text-anchor="middle" class="label">
+    • Expert systems
+  </text>
+  <text x="150" y="165" text-anchor="middle" class="label">
+    • Theorem provers
+  </text>
+
+  <!-- Second Wave box: Neural / Statistical -->
+  <rect x="360" y="80" width="180" height="160" class="box" />
+  <text x="450" y="100" text-anchor="middle" class="label">
+    Neural / Statistical AI
+  </text>
+  <text x="450" y="120" text-anchor="middle" class="label">
+    (Deep learning, LLMs)
+  </text>
+  <text x="450" y="145" text-anchor="middle" class="label">
+    • Standard transformers
+  </text>
+  <text x="450" y="165" text-anchor="middle" class="label">
+    • GPT, Claude, Gemini, etc.
+  </text>
+  <text x="450" y="185" text-anchor="middle" class="label">
+    • High fluency, low guarantees
+  </text>
+
+  <!-- Third Wave parent box -->
+  <rect x="660" y="80" width="200" height="220" class="box" />
+  <text x="760" y="100" text-anchor="middle" class="label">
+    Logocentric / Geometric AI
+  </text>
+  <text x="760" y="120" text-anchor="middle" class="label">
+    (Third Wave)
+  </text>
+  <text x="760" y="140" text-anchor="middle" class="label">
+    • Geometric-modal constraints
+  </text>
+  <text x="760" y="160" text-anchor="middle" class="label">
+    • Audit-grade reasoning (LSA)
+  </text>
+  <text x="760" y="180" text-anchor="middle" class="label">
+    • Compliance-native by design
+  </text>
+
+  <!-- YARA Lógica inner box -->
+  <rect x="685" y="210" width="150" height="70" class="yara" rx="6" ry="6" />
+  <text x="760" y="230" text-anchor="middle" class="label" style="font-weight:bold;">
+    YARA Lógica
+  </text>
+  <text x="760" y="250" text-anchor="middle" class="label">
+    LGMRS / LSA-Architected
+  </text>
+  <text x="760" y="268" text-anchor="middle" class="label">
+    Carbon & Finance Compliance
+  </text>
+
+  <!-- Evolution arrows -->
+  <line x1="240" y1="140" x2="360" y2="140" class="arrow" />
+  <text x="300" y="130" text-anchor="middle" class="label">
+    adds learning
+  </text>
+
+  <line x1="540" y1="150" x2="660" y2="150" class="arrow" />
+  <text x="600" y="140" text-anchor="middle" class="label">
+    adds geometry,
+  </text>
+  <text x="600" y="156" text-anchor="middle" class="label">
+    audit & falsifiers
+  </text>
+
+  <!-- Legend -->
+  <rect x="60" y="320" width="260" height="80" class="box" />
+  <text x="75" y="340" class="label">Legend:</text>
+  <text x="75" y="360" class="label">• First Wave: Symbolic / rule-based</text>
+  <text x="75" y="378" class="label">• Second Wave: Neural / statistical LLMs</text>
+  <text x="75" y="396" class="label">• Third Wave: Logocentric, geometric-modal, audit-grade (YARA)</text>
+</svg>
