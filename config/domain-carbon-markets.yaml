@@ -1,0 +1,345 @@
+# Carbon Markets Domain Configuration
+# Version: 1.0
+# Last Updated: 2025-11-24
+# Description: Domain-specific rules for carbon markets decision-making
+
+domain: carbon_markets
+version: "1.0"
+description: "Rules and constraints for carbon credit projects (Verra VCS, Gold Standard, etc.)"
+
+# Applicable Standards
+standards:
+  verra_vcs:
+    enabled: true
+    version: "4.5"  # VCS Program Guide version
+    methodologies:
+      - VM0047  # ARR (Afforestation, Reforestation, Revegetation)
+      - VM0042  # Improved Agricultural Land Management
+      - VM0010  # Improved Forest Management
+      - VM0026  # Sustainable Grassland Management
+    ccb_standards:
+      enabled: true  # Climate, Community & Biodiversity Standards
+      required: false  # Optional but recommended
+
+  gold_standard:
+    enabled: true
+    version: "4.0"
+    focus: "renewable_energy"  # Primary Gold Standard domain
+
+  brazilian_context:
+    enabled: true
+    regulations:
+      - forest_code_lei_12651_2012
+      - lgpd_lei_13709_2018
+      - sicar_registration  # Rural Environmental Registry
+
+# Methodology Selection Rules
+methodology_selection:
+  ARR:  # Afforestation, Reforestation, Revegetation
+    eligible_methodologies:
+      - "VM0047"
+      - "VM0010"  # If includes forest management
+
+    eligibility_criteria:
+      land_use_history:
+        - "Land not classified as forest for ≥10 years prior to project start"
+        - "Historical evidence required (satellite imagery, land registry)"
+
+      displacement:
+        - "No displacement of existing agriculture without justification"
+        - "No conversion of native vegetation"
+
+      permanence:
+        - "Minimum project crediting period: 30 years (renewable)"
+        - "Buffer pool contribution required per VCS rules"
+
+      biome_specific:
+        cerrado:
+          - "Must comply with Brazilian Forest Code Legal Reserve (RL) requirements"
+          - "APP (Permanent Preservation Areas) must be identified and excluded"
+
+        amazon:
+          - "Higher scrutiny for additionality (forest protection already mandated)"
+          - "Requires social safeguards per FPIC (Free Prior Informed Consent)"
+
+        atlantic_forest:
+          - "Native species restoration preferred"
+          - "Alignment with Atlantic Forest Law (Lei 11.428/2006)"
+
+  agricultural_land_management:
+    eligible_methodologies:
+      - "VM0042"
+      - "VM0026"  # If grassland/pasture focus
+
+    eligibility_criteria:
+      baseline:
+        - "Historical agricultural practices must be documented (≥3 years)"
+        - "Soil organic carbon (SOC) baseline required"
+
+      project_activities:
+        allowed:
+          - "No-till farming"
+          - "Cover cropping"
+          - "Improved grazing management"
+          - "Organic amendments (compost, biochar)"
+        not_allowed:
+          - "Conversion of native vegetation"
+          - "Practices requiring significant external inputs (unsustainable)"
+
+# Additionality Requirements
+additionality:
+  required: true
+  description: "Demonstrate project would not occur in business-as-usual scenario"
+
+  validation_methods:
+    financial:
+      description: "Project not financially attractive without carbon revenue"
+      required_evidence:
+        - "IRR (Internal Rate of Return) < investment threshold without carbon"
+        - "NPV (Net Present Value) < 0 without carbon revenue"
+
+    barrier:
+      description: "Significant barriers overcome by carbon finance"
+      barrier_types:
+        - "technological"  # New technology or practice
+        - "institutional"  # Regulatory or policy barriers
+        - "financial"      # Lack of capital
+        - "social"         # Community acceptance challenges
+
+    common_practice:
+      description: "Project activity not common practice in region"
+      required_evidence:
+        - "Regional adoption rate < 20% for similar activities"
+        - "Survey or statistical evidence from comparable areas"
+
+  brazilian_context:
+    forest_code_compliance:
+      - "Restoration of Legal Reserve (RL) NOT additional (already mandated by law)"
+      - "Restoration beyond RL can be additional with proper justification"
+      - "APP restoration NOT additional (legally required)"
+
+# Baseline and Project Scenario
+baseline_scenario:
+  description: "Business-as-usual scenario without project"
+
+  requirements:
+    - "Must be realistic and credible"
+    - "Based on historical data (≥3 years preferred)"
+    - "Account for legal and regulatory requirements (e.g., Forest Code)"
+    - "Conservative assumptions (avoid over-crediting)"
+
+  common_baselines:
+    ARR:
+      - "Continuation of grassland or degraded land"
+      - "Low-intensity cattle grazing"
+      - "No management intervention"
+
+    agricultural:
+      - "Conventional tillage"
+      - "Low soil carbon accumulation"
+      - "Business-as-usual fertilization"
+
+project_scenario:
+  requirements:
+    - "Clear description of project activities"
+    - "Timeline for implementation"
+    - "Expected carbon stock changes or emission reductions"
+    - "Monitoring plan (frequency, metrics, methods)"
+
+# Carbon Accounting
+carbon_accounting:
+  pools:
+    required:
+      - "above_ground_biomass"
+      - "below_ground_biomass"
+      - "soil_organic_carbon"
+
+    optional:
+      - "dead_wood"
+      - "litter"
+      - "harvested_wood_products"
+
+  gases:
+    required:
+      - "CO2"
+
+    conditional:
+      - "CH4"  # If relevant (e.g., rice cultivation, livestock)
+      - "N2O"  # If relevant (e.g., fertilizer application)
+
+  measurement_methods:
+    above_ground_biomass:
+      - "Allometric equations (species-specific)"
+      - "Field sampling (plot-based)"
+      - "Remote sensing (LiDAR, satellite) with ground-truthing"
+
+    soil_organic_carbon:
+      - "Soil sampling (0-30 cm depth minimum)"
+      - "Laboratory analysis (Walkley-Black or dry combustion)"
+      - "Stratification by soil type, land use history"
+
+  uncertainty:
+    max_acceptable: 0.15  # 15% uncertainty at 95% confidence
+    deduction_if_exceeded: 0.10  # 10% conservative deduction
+
+# Risk Assessment (Domain-Specific)
+risk_thresholds:
+  financial_impact:
+    low: 10000      # USD, up to $10k
+    medium: 100000  # USD, $10k - $100k
+    high: null      # USD, above $100k
+
+  regulatory_risk:
+    low:
+      - "Minor non-conformance with non-critical methodology section"
+
+    medium:
+      - "Moderate non-conformance requiring corrective action"
+      - "Potential delay in validation/verification"
+
+    high:
+      - "Critical non-conformance (methodology eligibility)"
+      - "Risk of project rejection by auditor"
+      - "Potential legal/regulatory violation"
+
+  reputational_risk:
+    low:
+      - "Internal decision, no external visibility"
+
+    medium:
+      - "Decision affects project submitted to registry (public)"
+
+    high:
+      - "Decision affects issued credits (high scrutiny)"
+      - "Potential for public controversy or media attention"
+
+# Monitoring and Verification
+monitoring:
+  frequency:
+    default: "annual"
+    minimum: "biennial"  # Every 2 years per VCS
+
+  requirements:
+    - "Monitoring plan approved during validation"
+    - "Field measurements per approved methods"
+    - "QA/QC procedures documented"
+    - "Deviations from plan require justification"
+
+  verification:
+    frequency: "every_5_years"  # Or per crediting period
+    auditor_requirements:
+      - "VVB (Validation/Verification Body) accredited by Verra"
+      - "No conflict of interest"
+      - "Expertise in relevant methodology and biome"
+
+# Permanence and Buffers
+permanence:
+  buffer_pool:
+    default_contribution: 0.10  # 10% of credits to buffer pool
+    risk_based_adjustment: true  # Can increase if high reversal risk
+
+  reversal_risk_factors:
+    low:
+      - "Protected area status"
+      - "Strong legal protection"
+      - "Low fire/pest risk"
+
+    medium:
+      - "Private land with conservation easement"
+      - "Moderate natural risks"
+
+    high:
+      - "High deforestation pressure region"
+      - "Conflict or land tenure uncertainty"
+      - "High fire or natural disaster risk"
+
+  monitoring_permanence:
+    - "Annual check for reversals (satellite monitoring)"
+    - "Immediate reporting if reversal detected"
+    - "Buffer pool credits retired to compensate"
+
+# Safeguards
+safeguards:
+  environmental:
+    - "No net harm to biodiversity"
+    - "No conversion of native ecosystems"
+    - "Water resource protection (no negative impacts)"
+
+  social:
+    - "Free Prior Informed Consent (FPIC) if indigenous/traditional communities"
+    - "Fair benefit sharing"
+    - "No forced displacement"
+    - "Community engagement plan"
+
+  legal:
+    - "Compliance with Brazilian Forest Code"
+    - "Compliance with LGPD (data protection) if collecting personal data"
+    - "Land tenure legally documented"
+
+# Decision Record Enhancements (Carbon Markets)
+decision_record:
+  required_metadata:
+    - "methodology"           # e.g., "VM0047"
+    - "project_type"          # e.g., "ARR", "IFM", "agricultural"
+    - "biome"                 # e.g., "cerrado", "amazon", "atlantic_forest"
+    - "area_ha"               # Project area in hectares
+    - "estimated_credits_yr"  # Estimated credits per year
+
+  required_premises:
+    - "methodology_eligibility"   # Must cite methodology section
+    - "additionality"             # Must demonstrate additionality
+    - "baseline_justification"    # Must justify baseline scenario
+
+  required_contradictions:
+    - "forest_code_overlap"       # Check if RL/APP overlap
+    - "common_practice_check"     # Verify not common practice
+    - "alternative_methodologies" # Consider other applicable methodologies
+
+# RAG Retrieval (Domain-Specific Filters)
+rag_filters:
+  classification:
+    - "verra-methodology"
+    - "regulation-brazil"
+
+  domains:
+    - "carbon_markets"
+    - "compliance_legal"
+
+  priority_sources:
+    - "knowledge/methodologies/VM0047*"
+    - "knowledge/methodologies/VM0042*"
+    - "knowledge/regulations/forest-code*"
+
+# Confidence Overrides
+confidence_overrides:
+  # Even HIGH confidence requires review for critical decisions
+  methodology_selection:
+    auto_approve: false
+    min_review_level: "expert"
+
+  additionality_determination:
+    auto_approve: false
+    min_review_level: "expert"
+
+  baseline_approval:
+    auto_approve: false
+    min_review_level: "senior_analyst"
+
+# References
+references:
+  vcs_program_guide: "https://verra.org/wp-content/uploads/2024/01/VCS-Program-Guide-v4.5.pdf"
+  vm0047_methodology: "https://verra.org/methodologies/vm0047/"
+  vm0042_methodology: "https://verra.org/methodologies/vm0042/"
+  brazilian_forest_code: "http://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12651.htm"
+  ccb_standards: "https://verra.org/programs/ccbs/"
+
+# Notes
+notes: |
+  This configuration is based on Verra VCS v4.5 and Brazilian regulations as of 2025-11-24.
+  Review quarterly for updates to methodologies, program guides, and legal requirements.
+
+  Key considerations:
+  - Brazilian Forest Code compliance is mandatory (not additional)
+  - Additionality in Brazil requires careful analysis due to legal restoration requirements
+  - Social safeguards are critical for projects in indigenous/traditional territories
+  - Buffer pool contributions are non-negotiable per VCS rules

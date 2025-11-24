@@ -1,0 +1,215 @@
+# LSA System Configuration
+# Version: 1.0
+# Last Updated: 2025-11-24
+# Description: Core configuration for Logic Sorting Architecture (LSA) decision system
+
+version: "1.0"
+schema_version: "PICC-1.0"
+
+# Evidence Requirements
+evidence_requirements:
+  FACT:
+    description: "Evidence-backed statements requiring verifiable sources"
+    min_sources: 2
+    source_types:
+      - "https"          # Public HTTPS URLs
+      - "git+https"      # Git-backed documents (with SHA)
+    source_quality:
+      tier_1_weight: 1.0  # Government, standards bodies, regulatory agencies
+      tier_2_weight: 0.8  # Academic peer-reviewed, industry associations
+      tier_3_weight: 0.6  # Technical docs, vendor whitepapers
+    require_dates: true   # Sources must have publication/version date
+    max_age_days: null    # No age restriction (unless domain-specific)
+
+  ASSUMPTION:
+    description: "Working hypotheses with explicit uncertainty"
+    min_sources: 0        # Assumptions don't require external sources
+    require_justification: true
+    must_flag_uncertainty: true
+
+  EXPERT_OPINION:
+    description: "Authoritative but non-empirical inputs"
+    min_sources: 1
+    require_credentials: true  # Expert must have stated credentials/authority
+
+# Confidence Levels
+confidence_levels:
+  HIGH:
+    description: "Strong evidence, minimal contradictions"
+    criteria:
+      min_premises: 3
+      min_premises_type_FACT: 2    # At least 2 FACT premises
+      max_contradictions: 1
+      min_evidence_quality: 0.8    # Weighted average of source quality
+      max_assumption_ratio: 0.2    # Max 20% of premises can be ASSUMPTION
+    auto_approve: true               # Can be auto-approved if risk is low
+
+  MEDIUM:
+    description: "Partial evidence, some contradictions"
+    criteria:
+      min_premises: 2
+      min_premises_type_FACT: 1
+      max_contradictions: 2
+      min_evidence_quality: 0.6
+      max_assumption_ratio: 0.4    # Max 40% assumptions
+    auto_approve: false              # Always requires review
+
+  LOW:
+    description: "Incomplete evidence, high uncertainty"
+    criteria:
+      min_premises: 1
+      min_premises_type_FACT: 0
+      max_contradictions: 999        # No limit on contradictions
+      min_evidence_quality: 0.0
+      max_assumption_ratio: 1.0      # Can be 100% assumptions
+    auto_approve: false
+    require_justification: true      # Must explain why proceeding with low confidence
+
+# Risk Assessment
+risk_assessment:
+  description: "Rules for classifying decision risk and routing"
+
+  levels:
+    low:
+      criteria:
+        - confidence: ["HIGH"]
+        - max_financial_impact_usd: 10000
+        - max_regulatory_risk: "minor"
+        - max_reputational_risk: "minimal"
+      routing: "auto_approve"
+      review_required: false
+
+    medium:
+      criteria:
+        - confidence: ["MEDIUM", "HIGH"]
+        - max_financial_impact_usd: 100000
+        - max_regulatory_risk: "moderate"
+        - max_reputational_risk: "significant"
+      routing: "human_review"
+      review_required: true
+      review_sla_hours: 24
+
+    high:
+      criteria:
+        - confidence: ["LOW", "MEDIUM", "HIGH"]
+        - max_financial_impact_usd: null  # No limit
+        - max_regulatory_risk: "critical"
+        - max_reputational_risk: "severe"
+      routing: "escalation"
+      review_required: true
+      review_sla_hours: 4
+      require_expert_approval: true
+
+  # Domain-specific risk overrides (can be defined in domain configs)
+  domain_overrides:
+    carbon_markets:
+      # Even HIGH confidence requires review if methodology selection
+      methodology_selection: "medium"
+
+# Falsifier Policies
+falsifier:
+  description: "Popperian falsification criteria for validating decisions"
+
+  required: true                     # All decisions must have falsifier
+
+  validation_schedule:
+    default_interval_days: 90        # Check falsifiers every 90 days
+    critical_interval_days: 30       # Critical decisions checked monthly
+
+  metrics:
+    allowed_types:
+      - "count"                      # e.g., number of non-conformances
+      - "percentage"                 # e.g., % deviation from baseline
+      - "boolean"                    # e.g., auditor approval yes/no
+      - "date"                       # e.g., deadline met/missed
+
+  actions:
+    on_falsifier_triggered:
+      - "create_github_issue"        # Auto-create issue for review
+      - "notify_team"                # Slack/email alert
+      - "mark_decision_invalidated"  # Update decision record status
+      - "trigger_remediation"        # Start remediation workflow
+
+  exemptions:
+    # Some decisions may not need falsifiers (e.g., informational queries)
+    allow_exemption: true
+    exemption_requires_justification: true
+
+# Audit Trail Settings
+audit_trail:
+  storage:
+    path: "audit-trail/decisions"
+    format: "json"
+    organization: "YYYY-MM"          # Organize by year-month
+
+  hashing:
+    algorithm: "SHA-256"
+    canonical_json: true             # Sort keys, no whitespace
+    include_in_filename: false       # Hash stored in content, not filename
+
+  git_integration:
+    auto_commit: true
+    commit_message_template: "LSA: {decision_id} - {summary}"
+    branch: "main"                   # Or use dedicated audit branch
+
+  retention:
+    min_retention_years: 7           # Minimum retention per audit standards
+    max_retention_years: null        # No maximum (keep forever in Git)
+
+# GitHub Integration
+github:
+  issue_creation:
+    enabled: true
+    template: ".github/ISSUE_TEMPLATE/lsa-decision-record.md"
+    labels:
+      always_apply:
+        - "lsa"
+        - "decision-record"
+      conditional:
+        - "high-confidence"          # If confidence = HIGH
+        - "medium-confidence"        # If confidence = MEDIUM
+        - "low-confidence"           # If confidence = LOW
+        - "needs-review"             # If human review required
+        - "risk-low"                 # Based on risk level
+        - "risk-medium"
+        - "risk-high"
+
+  auto_close:
+    enabled: true
+    conditions:
+      - "review_approved"            # Human reviewer approves
+      - "falsifier_validated"        # Falsifier check passes
+
+# Notifications
+notifications:
+  slack:
+    enabled: true
+    webhook_env_var: "SLACK_WEBHOOK_URL"
+    channels:
+      auto_approve: "#yara-logica-auto"
+      human_review: "#yara-logica-review"
+      falsifier_triggered: "#yara-logica-alerts"
+
+  email:
+    enabled: false
+    recipients: []
+
+# System Behavior
+system:
+  max_retries: 3                     # Max retries for LLM API calls
+  timeout_seconds: 60                # Timeout for LLM responses
+  enable_caching: true               # Cache RAG results temporarily
+  cache_ttl_seconds: 3600            # Cache for 1 hour
+
+  logging:
+    level: "INFO"                    # DEBUG, INFO, WARNING, ERROR
+    include_prompts: false           # Don't log full prompts (can be large)
+    include_rag_chunks: true         # Log which chunks were used
+
+# Compliance
+compliance:
+  data_classification: "P1-Internal"
+  requires_encryption_at_rest: false # GitHub already encrypted
+  requires_encryption_in_transit: true
+  audit_frequency: "quarterly"
+  responsible_party: "Alter Agro Technical Lead"
